@@ -472,6 +472,70 @@ void acl_event_callback(cl_event event, cl_int event_command_exec_status) {
   }
 }
 
+void acl_dump_event2(cl_event event) {
+  const char *type_name = "";
+  acl_assert_locked();
+
+  cl_command_queue cq = event->command_queue;
+  cl_context context = event->context;
+#define NNN(T)                                                                 \
+  case T:                                                                      \
+    type_name = #T;                                                            \
+    break;
+  switch (event->cmd.type) {
+    NNN(CL_COMMAND_TASK)
+    NNN(CL_COMMAND_NDRANGE_KERNEL)
+    NNN(CL_COMMAND_MARKER)
+    NNN(CL_COMMAND_READ_BUFFER)
+    NNN(CL_COMMAND_WRITE_BUFFER)
+    NNN(CL_COMMAND_COPY_BUFFER)
+    NNN(CL_COMMAND_USER)
+    NNN(CL_COMMAND_MAP_BUFFER)
+    NNN(CL_COMMAND_WAIT_FOR_EVENTS_INTELFPGA)
+    NNN(CL_COMMAND_PROGRAM_DEVICE_INTELFPGA)
+  default:
+    break;
+  }
+  acl_print_debug_msg("       Event [%d] %p = {\n", event->id, event);
+  acl_print_debug_msg("          .refcnt            %u\n",
+                      acl_ref_count(event));
+  // the event can be popped, therefore the queue can be invalid
+  if (cq)
+    acl_print_debug_msg(
+        "          .cq                %d %s\n", event->command_queue->id,
+        (cq == context->user_event_queue
+             ? "user_event_queue"
+             : (cq == context->auto_queue ? "auto_queue" : "")));
+  else
+    acl_print_debug_msg("the event doesn't belong to any command queue");
+  acl_print_debug_msg("          .execution_status  %d\n",
+                      event->execution_status);
+  acl_print_debug_msg("          .cmd_type          0x%4X %s\n",
+                      event->cmd.type, type_name);
+  acl_print_debug_msg("          .depend_on_me = {");
+  for (cl_event dependent : event->depend_on_me) {
+    if (dependent) {
+      acl_print_debug_msg(" %d,", dependent->id);
+    } else {
+      acl_print_debug_msg(" null,");
+    }
+  }
+  acl_print_debug_msg(" }\n");
+  acl_print_debug_msg("          .i_depend_on = {");
+  for (cl_event depender : event->depend_on) {
+    if (depender) {
+      acl_print_debug_msg(" %d,", depender->id);
+    } else {
+      acl_print_debug_msg(" null,");
+    }
+  }
+  acl_print_debug_msg(" }\n");
+  acl_print_debug_msg("          .times { %d %d %d %d } \n",
+                      event->timestamp[0], event->timestamp[1],
+                      event->timestamp[2], event->timestamp[3]);
+  acl_print_debug_msg("       }\n");
+}
+
 // Is this event in use by the system?
 // (If it's in use by the user, i.e. has refcount > 0, then it is
 // considered in use by the system.)
@@ -662,6 +726,9 @@ void acl_set_execution_status(cl_event event, int new_status) {
   // signal handler, which can't lock mutexes, so we don't lock in that case.
   // All functions called from this one therefore have to use
   // acl_assert_locked_or_sig() instead of just acl_assert_locked().
+
+  printf("Zibai debug, setting event %p, to status %d\n", event, new_status);
+
   if (!acl_is_inside_sig()) {
     acl_lock();
   }
@@ -917,7 +984,7 @@ cl_int acl_create_event(cl_command_queue command_queue, cl_uint num_events,
 
     if (debug_mode > 0) {
       printf("  Notify: Event [%d] has been created:\n", event->id);
-      acl_dump_event(event);
+      acl_dump_event2(event);
     }
 
     acl_track_object(ACL_OBJ_EVENT, event);
@@ -1055,7 +1122,7 @@ int acl_notify_dependent_events(cl_event event) {
              event->id);
     } else {
       printf("  Notify: Event [%d] has dependent events. Before:\n", event->id);
-      acl_dump_event(event);
+      acl_dump_event2(event);
     }
   }
 
@@ -1087,7 +1154,7 @@ int acl_notify_dependent_events(cl_event event) {
   if ((debug_mode > 0) && num_updates) {
     printf("  Notify: Event [%d] updated %d dependent events. After:\n",
            event->id, num_updates);
-    acl_dump_event(event);
+    acl_dump_event2(event);
   }
 
   return num_updates;
@@ -1127,71 +1194,8 @@ int acl_event_resources_are_available(cl_event event) {
   return result;
 }
 
-#ifdef ACL_DEBUG
-void acl_dump_event(cl_event event) {
-  const char *type_name = "";
-  acl_assert_locked();
-
-  cl_command_queue cq = event->command_queue;
-  cl_context context = event->context;
-#define NNN(T)                                                                 \
-  case T:                                                                      \
-    type_name = #T;                                                            \
-    break;
-  switch (event->cmd.type) {
-    NNN(CL_COMMAND_TASK)
-    NNN(CL_COMMAND_NDRANGE_KERNEL)
-    NNN(CL_COMMAND_MARKER)
-    NNN(CL_COMMAND_READ_BUFFER)
-    NNN(CL_COMMAND_WRITE_BUFFER)
-    NNN(CL_COMMAND_COPY_BUFFER)
-    NNN(CL_COMMAND_USER)
-    NNN(CL_COMMAND_MAP_BUFFER)
-    NNN(CL_COMMAND_WAIT_FOR_EVENTS_INTELFPGA)
-    NNN(CL_COMMAND_PROGRAM_DEVICE_INTELFPGA)
-  default:
-    break;
-  }
-  acl_print_debug_msg("       Event [%d] %p = {\n", event->id, event);
-  acl_print_debug_msg("          .refcnt            %u\n",
-                      acl_ref_count(event));
-  // the event can be popped, therefore the queue can be invalid
-  if (cq)
-    acl_print_debug_msg(
-        "          .cq                %d %s\n", event->command_queue->id,
-        (cq == context->user_event_queue
-             ? "user_event_queue"
-             : (cq == context->auto_queue ? "auto_queue" : "")));
-  else
-    acl_print_debug_msg("the event doesn't belong to any command queue");
-  acl_print_debug_msg("          .execution_status  %d\n",
-                      event->execution_status);
-  acl_print_debug_msg("          .cmd_type          0x%4X %s\n",
-                      event->cmd.type, type_name);
-  acl_print_debug_msg("          .depend_on_me = {");
-  for (cl_event dependent : event->depend_on_me) {
-    if (dependent) {
-      acl_print_debug_msg(" %d,", dependent->id);
-    } else {
-      acl_print_debug_msg(" null,");
-    }
-  }
-  acl_print_debug_msg(" }\n");
-  acl_print_debug_msg("          .i_depend_on = {");
-  for (cl_event depender : event->depend_on) {
-    if (depender) {
-      acl_print_debug_msg(" %d,", depender->id);
-    } else {
-      acl_print_debug_msg(" null,");
-    }
-  }
-  acl_print_debug_msg(" }\n");
-  acl_print_debug_msg("          .times { %d %d %d %d } \n",
-                      event->timestamp[0], event->timestamp[1],
-                      event->timestamp[2], event->timestamp[3]);
-  acl_print_debug_msg("       }\n");
-}
-#endif
+// #ifdef ACL_DEBUG
+// #endif
 
 #ifdef __GNUC__
 #pragma GCC visibility pop

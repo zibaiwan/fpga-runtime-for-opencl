@@ -106,6 +106,9 @@ static inline void safe_memcpy(void *dst, const void *src, uintptr_t count,
 }
 
 // For debugging.  These dump text via the HAL's printf API.
+// #define ACL_DEBUG // Zibai Added
+
+
 #ifdef ACL_DEBUG
 void acl_dump_event(cl_event event);
 void acl_dump_mem(cl_mem mem);

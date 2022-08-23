@@ -1183,7 +1183,7 @@ void acl_kernel_if_launch_kernel_on_custom_sof(
         "Kernel launch requested when kernel not idle on accelerator %d\n",
         accel_id);
     kern->io.printf("   kernel physical id = %d\n", kern->physical_device_id);
-    assert(0);
+    assert(0); 
   }
 
   // Option 3 CSRs start with the work_dim data member,

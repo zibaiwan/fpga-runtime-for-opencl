@@ -1550,10 +1550,14 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueNDRangeKernelIntelFPGA(
   cl_int ret;
   acl_lock();
 
+  printf("Zibai debugging calling clEnqueueNDRangeKernelIntelFPGA\n");
+
   ret = l_enqueue_kernel_with_type(
       command_queue, kernel, work_dim, global_work_offset, global_work_size,
       local_work_size, num_events_in_wait_list, event_wait_list, event,
       CL_COMMAND_NDRANGE_KERNEL);
+
+  printf("Zibai debugging l_enqueue_kernel_with_type return code is %d\n", ret);
 
   UNLOCK_RETURN(ret);
 }
@@ -1564,6 +1568,9 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueNDRangeKernel(
     const size_t *global_work_offset, const size_t *global_work_size,
     const size_t *local_work_size, cl_uint num_events_in_wait_list,
     const cl_event *event_wait_list, cl_event *event) {
+
+    printf("Zibai debugging calling clEnqueueNDRangeKernel\n");
+
   return clEnqueueNDRangeKernelIntelFPGA(
       command_queue, kernel, work_dim, global_work_offset, global_work_size,
       local_work_size, num_events_in_wait_list, event_wait_list, event);
@@ -1667,6 +1674,8 @@ static cl_int l_enqueue_kernel_with_type(
   //    CL_OUT_OF_HOST_MEMORY
   // Not coded at all:
   //    CL_OUT_OF_RESOURCES : others
+
+  printf("Zibai debugging calling l_enqueue_kernel_with_type\n");
 
   cl_device_id device = 0;
   size_t effective_work_group_size[3] = {
@@ -2256,8 +2265,10 @@ static cl_int l_enqueue_kernel_with_type(
   // parameters into the accelerator's control/status registers.
 
   // Schedule the kernel invocation.
+  printf("Zibai Debug trying to Schedule the kernel invocation \n");
   status = acl_create_event(command_queue, num_events_in_wait_list,
                             event_wait_list, type, &launch_event);
+  printf("Zibai Debug printing invocation status %d \n", status);
 
   if (status != CL_SUCCESS) {
     // Bail out. We'll never do the operation.
@@ -2282,6 +2293,7 @@ static cl_int l_enqueue_kernel_with_type(
   launch_event->completion_callback = l_complete_kernel_execution;
   if (acl_kernel_is_valid(kernel)) {
     launch_event->ptr_hashtable = kernel->ptr_hashtable;
+    printf("Zibai debug, acl_kernel is valid\n");
   }
   for (auto arg_ptr : kernel->ptr_arg_vector) {
     if (arg_ptr != NULL) {

@@ -912,6 +912,8 @@ unsigned l_update_device_op_queue_once(acl_device_op_queue_t *doq) {
                 op->info.event->cmd.info.ndrange_kernel.device;
             unsigned int fast_launch_depth =
                 kernel->accel_def->fast_launch_depth;
+
+            // unsigned int fast_launch_depth = 3; // Zibai Added
             if (op->info.type == ACL_DEVICE_OP_MEM_MIGRATION) {
               if (l_is_noop_migration(op) && !block_noop_pruning) {
                 // ignore if we conflict on the conflict matrix
@@ -953,7 +955,11 @@ unsigned l_update_device_op_queue_once(acl_device_op_queue_t *doq) {
                   }
                 }
               }
+              printf("zibai debug num_on_device is %d, and op event is %p \n", num_on_device, op->info.event);
+              printf("zibai debug fast_launch_depth is %d \n", fast_launch_depth);
+              printf("zibai debug command type is %d \n", int(op->info.event->cmd.type)); // output 4592, which CL_COMMAND_NDRANGE_KERNEL in 0x11F0.
               if (num_on_device > fast_launch_depth) {
+                printf("zibai debug, op event %p, is conflicting becasue num_on_device > fast_launch_depth \n", op->info.event);
                 is_conflicting = 1;
               }
             }
@@ -965,7 +971,7 @@ unsigned l_update_device_op_queue_once(acl_device_op_queue_t *doq) {
               is_conflicting = 0;
             }
           }
-
+          printf("Zibai debug this op is_conflicting: %d, op event is %p\n", is_conflicting, op->info.event);
           if (!is_conflicting) {
             // Good to go (or go again).
             acl_submit_device_op(doq, op);
@@ -1204,7 +1210,7 @@ unsigned l_update_device_op_queue_once(acl_device_op_queue_t *doq) {
       if (op->status <= CL_COMPLETE &&
           (op->info.num_printf_bytes_pending == 0)) {
         // This operation is finished.  We can prune it.
-
+        printf("Zibai debug this op event %p is completed!\n", op->info.event);
         if (debug_mode > 0)
           l_dump_op("    pruning", op);
 
@@ -1262,6 +1268,8 @@ unsigned l_update_device_op_queue_once(acl_device_op_queue_t *doq) {
 void acl_submit_device_op(acl_device_op_queue_t *doq, acl_device_op_t *op) {
   acl_assert_locked();
 
+  printf("Zibai debug submitting device opeartion? This never get called for the 3rd write. \n");
+
   if (!doq || !op)
     return;
 
@@ -1290,6 +1298,7 @@ void acl_submit_device_op(acl_device_op_queue_t *doq, acl_device_op_t *op) {
   doq->CALL(doq->user_data, X)
       switch (op->info.type) {
       case ACL_DEVICE_OP_KERNEL:
+        printf("Zibai debug, calling DOIT(Launch kernel)\n");
         DOIT(launch_kernel, op);
         break;
       case ACL_DEVICE_OP_MEM_TRANSFER_READ:
