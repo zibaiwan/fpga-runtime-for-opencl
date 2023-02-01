@@ -1202,7 +1202,8 @@ bool acl_load_device_def_from_str(const std::string &config_str,
   if (result && counters.back() > 0) {
     result = read_bool_counters(config_str, curr_pos,
                                 devdef.cra_ring_root_exist, counters);
-
+  }
+  
   // Read program scoped hostpipes mappings
   if (result && counters.back() > 0) {
     result = read_hostpipe_mappings(

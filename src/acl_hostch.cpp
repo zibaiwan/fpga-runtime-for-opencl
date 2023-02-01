@@ -898,18 +898,16 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueReadHostPipeINTEL(
 
     cl_int status = 0;
 
-    // Todo: this function is different from the above, is this function is to be submitted to the command queue. This is the Enqueue function!
     // Error checking
 
     // Get context from program, command_queue and event
     cl_context context = program->context;
     cl_device_id device = command_queue->device;
 
-    // TODO check if acl_idle_update is needed
-
-    acl_lock();
-    acl_idle_update(context);
-    acl_unlock();
+    {
+    std::scoped_lock lock{acl_mutex_wrapper};
+    acl_idle_update(context);  // Zibai double check whether this acl_idle_update is really needed.
+    }
 
     if (ptr == NULL) {
       ERR_RET(CL_INVALID_VALUE, context, "Invalid pointer was provided to host data");
@@ -1014,11 +1012,10 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueWriteHostPipeINTEL(
     cl_context context = program->context;
     cl_device_id device = command_queue->device;
 
-    // TODO check if acl_idle_update is needed
-
-    acl_lock();
-    acl_idle_update(context);
-    acl_unlock();
+    {
+    std::scoped_lock lock{acl_mutex_wrapper};
+    acl_idle_update(context);  // Zibai double check whether this acl_idle_update is really needed.
+    }
                       
     if (ptr == NULL) {
       ERR_RET(CL_INVALID_VALUE, context, "Invalid pointer was provided to host data");
