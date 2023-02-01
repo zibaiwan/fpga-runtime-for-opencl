@@ -24,6 +24,7 @@
 #include <acl_types.h>
 #include <acl_usm.h>
 #include <acl_util.h>
+#include <acl_hostch.h>
 
 #ifdef __GNUC__
 #pragma GCC visibility push(protected)
@@ -369,6 +370,14 @@ int acl_submit_command(cl_event event) {
 
     case CL_COMMAND_MIGRATE_MEM_OBJECTS:
       result = acl_submit_migrate_mem_device_op(event);
+      break;
+
+    case CL_COMMAND_READ_HOST_PIPE_INTEL_FPGA:
+      result = acl_submit_read_program_hostpipe_device_op(event);
+      break;
+
+    case CL_COMMAND_WRITE_HOST_PIPE_INTEL_FPGA:
+      result = acl_submit_write_program_hostpipe_device_op(event);
       break;
 
     default:

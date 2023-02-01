@@ -17,6 +17,9 @@
 #include <acl_hostch.h>
 #include <acl_mem.h>
 #include <acl_util.h>
+#include <acl_event.h>
+#include <acl_platform.h>
+#include <acl_device_op.h>
 
 #ifdef __GNUC__
 #pragma GCC visibility push(protected)
@@ -75,6 +78,7 @@ static void l_clean_up_pending_pipe_ops(cl_mem pipe) {
           assert(acked_size == 0);
         }
       }
+      // Zibai to be revmoed: what exactly is here doing?
       pipe->host_pipe_info->size_buffered -= acked_size;
 
       // Clean up the host pipe operation form the queue
@@ -681,6 +685,394 @@ clUnmapHostPipeIntelFPGA(cl_mem pipe, void *mapped_ptr, size_t size_to_unmap,
 
   return CL_SUCCESS;
 }
+
+
+
+void acl_read_program_hostpipe(void *user_data, acl_device_op_t *op){
+
+    cl_event event = op->info.event;
+    cl_int status = 0;
+    size_t pulled_data;
+    cl_context context = event->context;
+    bool blocking = event->cmd.info.host_pipe_info.blocking;
+    acl_assert_locked();
+
+    if (!acl_event_is_valid(event) ||
+        !acl_command_queue_is_valid(event->command_queue)) {
+      acl_set_device_op_execution_status(op, -1);
+      return;
+    }
+
+    acl_device_program_info_t *dev_prog = event->command_queue->device->loaded_bin->get_dev_prog();
+    auto host_pipe_info = dev_prog->program_hostpipe_map.at(std::string( event->cmd.info.host_pipe_info.logical_name));
+    acl_mutex_lock(&(host_pipe_info.m_lock));
+    acl_set_device_op_execution_status(op, CL_SUBMITTED);
+    acl_set_device_op_execution_status(op, CL_RUNNING);
+
+    pulled_data = acl_get_hal()->hostchannel_pull(
+        event->cmd.info.host_pipe_info.m_physical_device_id,
+        event->cmd.info.host_pipe_info.m_channel_handle, event->cmd.info.host_pipe_info.ptr, event->cmd.info.host_pipe_info.size, &status);
+
+    if (!blocking){
+      // If it is non-blocking read, we return with the error right away
+      if (status != 0 || pulled_data != event->cmd.info.host_pipe_info.size) {
+          acl_mutex_unlock(&(host_pipe_info.m_lock));
+          acl_context_callback(context, "TODO BETTER ERROR, Empty pipe!");
+          acl_set_device_op_execution_status(op, -1);
+      }
+    } else{
+      // If it is a blocking read, this call won't return until the kernel writes the data into the pipe.
+      while (status != 0 || pulled_data != event->cmd.info.host_pipe_info.size){
+        pulled_data = acl_get_hal()->hostchannel_pull(
+        event->cmd.info.host_pipe_info.m_physical_device_id,
+        event->cmd.info.host_pipe_info.m_channel_handle, event->cmd.info.host_pipe_info.ptr, event->cmd.info.host_pipe_info.size, &status);
+      }
+    }
+    acl_mutex_unlock(&(host_pipe_info.m_lock));
+}
+
+void acl_write_program_hostpipe(void *user_data, acl_device_op_t *op){
+
+  // TODO LOCKING  mutext, can use event->command_queue->device->device_prog->hostpipe_mapping->logical name to find the hostmap, 
+  // which means, event needs to add logical name in the event->cmd.info.host_pipe_info
+
+  cl_int status;
+  cl_event event = op->info.event;
+  cl_context context = event->context;
+  bool blocking = event->cmd.info.host_pipe_info.blocking;
+  acl_assert_locked();
+
+  if (!acl_event_is_valid(event) ||
+    !acl_command_queue_is_valid(event->command_queue)) {
+  acl_set_device_op_execution_status(op, -1);
+  return;
+  }
+
+  acl_device_program_info_t *dev_prog = event->command_queue->device->loaded_bin->get_dev_prog();
+  auto host_pipe_info = dev_prog->program_hostpipe_map.at(std::string( event->cmd.info.host_pipe_info.logical_name));
+  acl_mutex_lock(&(host_pipe_info.m_lock));
+  acl_set_device_op_execution_status(op, CL_SUBMITTED);
+  acl_set_device_op_execution_status(op, CL_RUNNING);
+
+  status = l_push_packet(event->cmd.info.host_pipe_info.m_physical_device_id,
+                        event->cmd.info.host_pipe_info.m_channel_handle, event->cmd.info.host_pipe_info.ptr,
+                        event->cmd.info.host_pipe_info.size);
+  if (!blocking){
+    // If it is non-blocking write, we return with the error right away
+    if (status != CL_SUCCESS) {
+      acl_mutex_unlock(&(host_pipe_info.m_lock));
+      acl_context_callback(context, "TODO BETTER ERROR, PIPE FULL");
+      acl_set_device_op_execution_status(op, -1);
+    }
+  }
+  else{
+    // If it's a blocking write, this function won't return until the write success.
+    while (status != CL_SUCCESS){
+      status = l_push_packet(event->cmd.info.host_pipe_info.m_physical_device_id,
+                      event->cmd.info.host_pipe_info.m_channel_handle, event->cmd.info.host_pipe_info.ptr,
+                      event->cmd.info.host_pipe_info.size);
+    }
+  }
+  acl_mutex_unlock(&(host_pipe_info.m_lock));
+}
+
+// Submit an op to the device op queue to read hostpipe.
+// Return 1 if we made forward progress, 0 otherwise.
+cl_int acl_submit_read_program_hostpipe_device_op(cl_event event){
+    int result = 0;
+    acl_assert_locked();
+
+    // No user-level scheduling blocks this hostpipe read
+    // So submit it to the device op queue.
+    // But only if it isn't already enqueued there.
+    if (!acl_event_is_valid(event)) {
+      return result;
+    }
+    // Already enqueued.
+    if (event->last_device_op) {
+      return result;
+    }
+
+    acl_device_op_queue_t *doq = &(acl_platform.device_op_queue);
+    acl_device_op_t *last_op = 0;
+
+    // Precautionary, but it also nudges the device scheduler to try
+    // to free up old operation slots.
+    acl_forget_proposed_device_ops(doq);
+
+    last_op = acl_propose_device_op(doq, ACL_DEVICE_OP_HOSTPIPE_READ, event); // TODO Change this to the READ op
+
+    if (last_op) {
+      // We managed to enqueue everything.
+      event->last_device_op = last_op;
+      acl_commit_proposed_device_ops(doq);
+      result = 1;
+    } else {
+      // Back off, and wait until later when we have more space in the
+      // device op queue.
+      acl_forget_proposed_device_ops(doq);
+    }
+    return result;
+}
+
+// Submit an op to the device op queue to write hostpipe.
+// Return 1 if we made forward progress, 0 otherwise.
+// TODO: maybe can combine this function to the acl_submit_read_program_hostpipe_device_op
+cl_int acl_submit_write_program_hostpipe_device_op(cl_event event){
+    int result = 0;
+    acl_assert_locked();
+
+    // No user-level scheduling blocks this hostpipe read
+    // So submit it to the device op queue.
+    // But only if it isn't already enqueued there.
+    if (!acl_event_is_valid(event)) {
+      return result;
+    }
+    // Already enqueued.
+    if (event->last_device_op) {
+      return result;
+    }
+
+    acl_device_op_queue_t *doq = &(acl_platform.device_op_queue);
+    acl_device_op_t *last_op = 0;
+
+    // Precautionary, but it also nudges the device scheduler to try
+    // to free up old operation slots.
+    acl_forget_proposed_device_ops(doq);
+
+    last_op = acl_propose_device_op(doq, ACL_DEVICE_OP_HOSTPIPE_WRITE, event); // TODO Change this to the Write op
+
+    if (last_op) {
+      // We managed to enqueue everything.
+      event->last_device_op = last_op;
+      acl_commit_proposed_device_ops(doq);
+      result = 1;
+    } else {
+      // Back off, and wait until later when we have more space in the
+      // device op queue.
+      acl_forget_proposed_device_ops(doq);
+    }
+    return result;
+}
+
+
+// Zibai new added for cl_intel_program_scope_host_pipe
+
+// clEnqueueReadHostPipeINTEL and clEnqueueWriteHostPipeINTEL return CL_SUCCESS if the command is queued successfully. Otherwise, they return one of the following errors:
+
+// CL_INVALID_COMMAND_QUEUE if command_queue is not a valid host command-queue.
+
+// CL_INVALID_CONTEXT if the context associated with command_queue and program are not the same or if the context associated with command_queue and events in event_wait_list are not the same.
+
+// CL_INVALID_PROGRAM if program is not a valid program object.
+
+// CL_INVALID_PROGRAM_EXECUTABLE if there is no successfully built program executable available for device associated with command_queue.
+
+// CL_INVALID_VALUE if either pipe_symbol or ptr are NULL, or no such symbol is found on the device.
+
+// CL_INVALID_SIZE if size doesn’t equal the size of one data struct defined in the pipe.
+// Use hsotppipe.data_width to check.
+// CL_INVALID_EVENT_WAIT_LIST if event_wait_list is NULL and num_events_in_wait_list > 0, or event_wait_list is not NULL and num_events_in_wait_list is 0, or if event objects in event_wait_list are not valid events.
+
+// CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST if the read and write operations are blocking and the execution status of any of the events in event_wait_list is a negative integer value.
+
+// CL_INVALID_OPERATION if clEnqueueReadHostPipeINTEL is called for a global variable that is not a host pipe that can be read by the host.
+
+// CL_INVALID_OPERATION if clEnqueueWriteHostPipeINTEL is called for a global variable that is not a host pipe that can be written by the host.
+
+// CL_OUT_OF_RESOURCES if there is a failure to allocate resources required by the OpenCL implementation on the device.
+
+// CL_OUT_OF_HOST_MEMORY if there is a failure to allocate resources required by the OpenCL implementation on the host.
+
+ACL_EXPORT
+CL_API_ENTRY cl_int CL_API_CALL clEnqueueReadHostPipeINTEL(
+                                    cl_command_queue command_queue,
+                                    cl_program program,
+                                    const char* pipe_symbol,
+                                    cl_bool blocking_read,
+                                    void* ptr,
+                                    size_t size,
+                                    cl_uint num_events_in_wait_list,
+                                    const cl_event* event_wait_list,
+                                    cl_event* event){
+
+    cl_int status = 0;
+
+    // Todo: this function is different from the above, is this function is to be submitted to the command queue. This is the Enqueue function!
+    // Error checking
+
+    // Get context from program, command_queue and event
+    cl_context context = program->context;
+    cl_device_id device = command_queue->device;
+
+    // TODO check if acl_idle_update is needed
+
+    acl_lock();
+    acl_idle_update(context);
+    acl_unlock();
+
+    if (ptr == NULL) {
+      ERR_RET(CL_INVALID_VALUE, context, "Invalid pointer was provided to host data");
+    }
+
+    if (pipe_symbol == NULL) {
+      ERR_RET(CL_INVALID_VALUE, context, "Invalid Pipe Symbol");
+    }
+    // TODO, care this scenario?
+    // Are there any operations queued up on this pipe? Is there any data still
+    // available to be read? If yes return that data. Else return 0
+    //safe_memcpy(ptr, host_op.m_mmd_buffer, host_op.m_op_size, size, size);
+
+    // No ops queued up on this pipe
+
+    // pulled_data = acl_get_hal()->hostchannel_pull(
+    //   pipe->host_pipe_info->m_physical_device_id,
+    //   pipe->host_pipe_info->m_channel_handle, ptr,
+    //   size, &status);
+    //   assert(status == 0);
+
+    // m_physical_device_id and m_channel_handle are set by acl_bind_pipe_to_channel
+
+    // pipe_symbol is seems to be the logical pipe name? Need to use it to get the physical pipe name from autodisovery string I think.
+
+    // How to use read_hostpipe_infos (existing function, probably doesn't care since it's not same program scopped one) and read_hostpipe_mappings (new function)?
+
+    // All hostpipe mappings are now saved to devdef.hostpipe_mappings. Probably need to go through them to find the physical name?
+
+    // What do I do once I find the physical name? It's a string.
+    // Probably need to look at this mmd get buffer function (aocl_mmd_hostchannel_get_buffer, it takes a int handle , a int channel to read from the mmd)
+
+    // Question, should I just try to figure out how to pass the physical name into the aocl_mmd_hostchannel_get_buffer, or it's completely wrong??
+    // Review Joe, Rob, Peter meeting again? along with other information in the bc.xml?
+
+    // Need to find that  pipe_symbol on the device
+
+    acl_device_program_info_t *dev_prog = device->loaded_bin->get_dev_prog();
+
+    auto search = dev_prog->program_hostpipe_map.find(std::string(pipe_symbol));
+
+    if (search == dev_prog->program_hostpipe_map.end()){
+      ERR_RET(CL_INVALID_VALUE, context, "Pipe Symbol is not found in the device");
+    }
+
+    // TODO: use pointer here is fine right?
+    auto host_pipe_info = dev_prog->program_hostpipe_map.at(std::string(pipe_symbol));
+
+    cl_event local_event = 0; // used for blocking
+
+    // Create an event/command to actually move the data at the appropriate
+    // time.
+    status = acl_create_event(command_queue, num_events_in_wait_list, event_wait_list, CL_COMMAND_READ_HOST_PIPE_INTEL_FPGA, &local_event);
+
+    if (status != CL_SUCCESS)
+      return status;
+
+    local_event->cmd.info.host_pipe_info.m_physical_device_id = host_pipe_info.m_physical_device_id;
+    local_event->cmd.info.host_pipe_info.m_channel_handle = host_pipe_info.m_channel_handle;
+    local_event->cmd.info.host_pipe_info.size = size;
+    local_event->cmd.info.host_pipe_info.ptr = ptr;
+    local_event->cmd.info.host_pipe_info.blocking = blocking_read;
+    local_event->cmd.info.host_pipe_info.logical_name = pipe_symbol;
+
+    acl_idle_update(command_queue->context); // If nothing's blocking, then complete right away
+
+    // Zibai TODO: double check whether needs this or not
+    if (blocking_read) {
+      status = clWaitForEvents(1, &local_event);
+    }
+
+    if (event) {
+      *event = local_event;
+    } else {
+      // User didn't care, so forget about the event.
+      clReleaseEvent(local_event);
+      acl_idle_update(command_queue->context); // Clean up early
+    }
+
+      return CL_SUCCESS;
+
+}
+
+//TODO
+
+//so I don't think we'll get a FE error if we read and write to the same pipe from the host. 
+// How difficult will it be to add a runtime error if this happens?
+
+ACL_EXPORT
+CL_API_ENTRY cl_int CL_API_CALL clEnqueueWriteHostPipeINTEL(
+                                    cl_command_queue command_queue,
+                                    cl_program program,
+                                    const char* pipe_symbol,
+                                    cl_bool blocking_write,
+                                    void* ptr,
+                                    size_t size,
+                                    cl_uint num_events_in_wait_list,
+                                    const cl_event* event_wait_list,
+                                    cl_event* event){
+    cl_int status = 0;
+    // Get context from program, command_queue and event
+    cl_context context = program->context;
+    cl_device_id device = command_queue->device;
+
+    // TODO check if acl_idle_update is needed
+
+    acl_lock();
+    acl_idle_update(context);
+    acl_unlock();
+                      
+    if (ptr == NULL) {
+      ERR_RET(CL_INVALID_VALUE, context, "Invalid pointer was provided to host data");
+    }
+
+    if (pipe_symbol == NULL) {
+      ERR_RET(CL_INVALID_VALUE, context, "Invalid Pipe Symbol");
+    }
+
+    acl_device_program_info_t *dev_prog = device->loaded_bin->get_dev_prog();
+
+    auto search = dev_prog->program_hostpipe_map.find(std::string(pipe_symbol));
+
+    if (search == dev_prog->program_hostpipe_map.end()){
+      ERR_RET(CL_INVALID_VALUE, context, "Pipe Symbol is not found in the device");
+    }
+
+    // TODO: use pointer here is fine right?
+    auto host_pipe_info = dev_prog->program_hostpipe_map.at(std::string(pipe_symbol));
+
+    cl_event local_event = 0; // used for blocking
+
+    // Create an event/command to actually move the data at the appropriate
+    // time.
+    status = acl_create_event(command_queue, num_events_in_wait_list, event_wait_list, CL_COMMAND_WRITE_HOST_PIPE_INTEL_FPGA, &local_event);
+
+    if (status != CL_SUCCESS)
+      return status;
+
+    local_event->cmd.info.host_pipe_info.m_physical_device_id = host_pipe_info.m_physical_device_id;
+    local_event->cmd.info.host_pipe_info.m_channel_handle = host_pipe_info.m_channel_handle;
+    local_event->cmd.info.host_pipe_info.size = size;
+    local_event->cmd.info.host_pipe_info.ptr = ptr;
+    local_event->cmd.info.host_pipe_info.blocking = blocking_write;
+    local_event->cmd.info.host_pipe_info.logical_name = pipe_symbol;
+
+    acl_idle_update(command_queue->context); // If nothing's blocking, then complete right away
+
+    // Zibai Todo, change this, cannot use clWaitForEvents
+    if (blocking_write) {
+      status = clWaitForEvents(1, &local_event);
+    }
+
+
+    if (event) {
+      *event = local_event;
+    } else {
+      // User didn't care, so forget about the event.
+      clReleaseEvent(local_event);
+      acl_idle_update(command_queue->context); // Clean up early
+    }
+    return CL_SUCCESS;
+}
+
 
 #ifdef __GNUC__
 #pragma GCC visibility pop

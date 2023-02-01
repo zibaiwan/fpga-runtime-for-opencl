@@ -647,7 +647,16 @@ static bool read_hostpipe_mappings(
              read_bool_counters(config_str, curr_pos, mapping.implement_in_csr,
                                 counters) &&
              read_uintptr_counters(config_str, curr_pos, mapping.csr_address,
-                                   counters);
+                                   counters) &&
+             read_bool_counters(config_str, curr_pos, mapping.is_read,
+                                counters) &&
+             read_bool_counters(config_str, curr_pos, mapping.is_write,
+                                counters) &&
+             read_uint_counters(config_str, curr_pos, mapping.pipe_width,
+                                counters) &&
+             read_uint_counters(config_str, curr_pos, mapping.pipe_depth,
+                                counters);
+                                  
     hostpipe_mappings.emplace_back(mapping);
 
     while (result && counters.back() > 0) {

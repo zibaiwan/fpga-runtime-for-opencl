@@ -861,6 +861,8 @@ typedef struct _cl_name_version {
 #define CL_COMMAND_MIGRATE_MEM_OBJECTS              0x1206
 #define CL_COMMAND_FILL_BUFFER                      0x1207
 #define CL_COMMAND_FILL_IMAGE                       0x1208
+#define CL_COMMAND_READ_HOST_PIPE_INTEL_FPGA        0x4214 // TODO, verify whether this should be in the CL_VERSION_1_2
+#define CL_COMMAND_WRITE_HOST_PIPE_INTEL_FPGA       0x4215
 #endif
 #ifdef CL_VERSION_2_0
 #define CL_COMMAND_SVM_FREE                         0x1209

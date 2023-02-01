@@ -1303,6 +1303,37 @@ l_create_dev_prog(cl_program program, cl_device_id device, size_t binary_len,
   return result;
 }
 
+static cl_int l_register_hostpipes_to_program(acl_device_program_info_t *dev_prog, const acl_device_def_autodiscovery_t &devdef, unsigned int physical_device_id, cl_context context) {
+
+  host_pipe_t host_pipe_info;
+
+  // Loop through all hostpipe mappings
+  // Todo: handle multiple logical pipe mape to same physical pipe scenario?
+  // Does hostchannel_create() return same handle with same device_id and pysical id? Hopefully the same!
+
+  for (const auto &hostpipe : devdef.hostpipe_mappings) {
+    host_pipe_t host_pipe_info;
+    host_pipe_info.m_physical_device_id = physical_device_id;
+    if (hostpipe.is_read && hostpipe.is_write){
+      ERR_RET(CL_INVALID_OPERATION, context, "Hostpipes don't allow both read and write operations from the host.");
+    }
+    if (!hostpipe.is_read && !hostpipe.is_write){
+      ERR_RET(CL_INVALID_OPERATION, context, "The hostpipe direction is not set.");
+    }
+    host_pipe_info.m_channel_handle =
+        acl_get_hal()->hostchannel_create(physical_device_id,
+            (char *)hostpipe.physical_name.c_str(),
+            hostpipe.pipe_depth,
+            hostpipe.pipe_width, !hostpipe.is_read); // If it's a read pipe, pass 0 to the hostchannel_create
+    acl_mutex_init(&(host_pipe_info.m_lock), NULL);
+    dev_prog->program_hostpipe_map[hostpipe.logical_name] = host_pipe_info;
+  }
+
+  return CL_SUCCESS;
+}
+
+
+
 static cl_int l_build_program_for_device(cl_program program,
                                          unsigned int dev_idx,
                                          const char *options) {
@@ -1392,6 +1423,8 @@ static cl_int l_build_program_for_device(cl_program program,
   } else {
     dev_prog->build_log = "Trivial build";
   }
+  // Map hostpipe, Zibai Change
+  l_register_hostpipes_to_program(dev_prog, dev_prog->device_binary.get_devdef().autodiscovery_def, dev_prog->device_binary.get_devdef().physical_device_id, context);
 
   // If no errors, then all is ok!
   if (build_status == CL_BUILD_IN_PROGRESS)

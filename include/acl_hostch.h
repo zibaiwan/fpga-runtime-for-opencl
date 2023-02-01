@@ -27,6 +27,14 @@ void acl_bind_and_process_all_pipes_transactions(
     cl_context context, cl_device_id device,
     const acl_device_def_autodiscovery_t &devdef);
 
+cl_int acl_submit_read_program_hostpipe_device_op(cl_event event);
+
+cl_int acl_submit_write_program_hostpipe_device_op(cl_event event);
+
+void acl_read_program_hostpipe(void *user_data, acl_device_op_t *op);
+
+void acl_write_program_hostpipe(void *user_data, acl_device_op_t *op);
+
 #define HOST_TO_DEVICE 1
 #define DEVICE_TO_HOST 0
 

@@ -539,6 +539,10 @@ struct acl_hostpipe_mapping {
   std::string physical_name;
   bool implement_in_csr;
   uintptr_t csr_address;
+  bool is_read;
+  bool is_write;
+  unsigned pipe_width;
+  unsigned pipe_depth;
 };
 
 // Part of acl_device_def_t where members are populated from the information
