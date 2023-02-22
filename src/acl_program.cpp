@@ -291,13 +291,15 @@ CL_API_ENTRY cl_program CL_API_CALL clCreateProgramWithBinaryIntelFPGA(
   cl_program program = 0;
   std::scoped_lock lock{acl_mutex_wrapper};
 
+  printf("Zibai debug clCreateProgramWithBinaryIntelFPGA is called  0 \n");
+
   if (!acl_context_is_valid(context))
     BAIL(CL_INVALID_CONTEXT);
-
+  printf("Zibai debug clCreateProgramWithBinaryIntelFPGA is called  1 \n");
   if (num_devices == 0 || device_list == 0) {
     BAIL_INFO(CL_INVALID_VALUE, context, "Invalid device list");
   }
-
+  printf("Zibai debug clCreateProgramWithBinaryIntelFPGA is called  2 \n");
   for (i = 0; i < num_devices; i++) {
     if (!acl_device_is_valid(device_list[i])) {
       BAIL_INFO(CL_INVALID_DEVICE, context, "Invalid device");
@@ -315,30 +317,33 @@ CL_API_ENTRY cl_program CL_API_CALL clCreateProgramWithBinaryIntelFPGA(
                                 : "A binary pointer is NULL");
     }
   }
-
+  printf("Zibai debug clCreateProgramWithBinaryIntelFPGA is called  3 \n");
   // Go ahead and allocate it.
   program = acl_alloc_cl_program();
   if (program == 0) {
     BAIL_INFO(CL_OUT_OF_HOST_MEMORY, context,
               "Could not allocate a program object");
   }
-
+  printf("Zibai debug clCreateProgramWithBinaryIntelFPGA is called  4 \n");
   l_init_program(program, context);
-
+  printf("Zibai debug clCreateProgramWithBinaryIntelFPGA is called  5 \n");
   // Copy devices from arguments and set status.
   program->num_devices = num_devices;
   for (idev = 0; idev < num_devices; idev++) {
     program->device[idev] = device_list[idev];
-
+  printf("Zibai debug clCreateProgramWithBinaryIntelFPGA is called  6 \n");
     // Save the binary in a new acl_device_program_info_t
     program->dev_prog[idev] = l_create_dev_prog(program, device_list[idev],
                                                 lengths[idev], binaries[idev]);
+    printf("Zibai debug clCreateProgramWithBinaryIntelFPGA is called  7 \n");
     if (program->dev_prog[idev]) {
       if (context->programs_devices || context->uses_dynamic_sysdef) {
         if (!context->split_kernel) {
+          printf("Zibai debug clCreateProgramWithBinaryIntelFPGA is called  8 \n");
           // Load and validate the ELF package form.
           auto status =
               program->dev_prog[idev]->device_binary.load_binary_pkg(0, 1);
+          printf("Zibai debug clCreateProgramWithBinaryIntelFPGA is called  9 \n");
           if (status != CL_SUCCESS) {
             l_free_program(program);
             if (binary_status) {
@@ -346,6 +351,7 @@ CL_API_ENTRY cl_program CL_API_CALL clCreateProgramWithBinaryIntelFPGA(
             }
             BAIL_INFO(CL_INVALID_BINARY, context, "Invalid binary");
           }
+        printf("Zibai debug clCreateProgramWithBinaryIntelFPGA is called  10 \n");
         } else {
           assert(context->uses_dynamic_sysdef);
           // Allow disabling preloading of split binaries if the user requests
@@ -356,12 +362,14 @@ CL_API_ENTRY cl_program CL_API_CALL clCreateProgramWithBinaryIntelFPGA(
           // CL_PROGRAM_NUM_KERNELS and CL_PROGRAM_KERNEL_NAMES in
           // clGetProgramInfo will return inaccurate results unless all kernels
           // in the program are created. Preloading is enabled by default.
+          printf("Zibai debug clCreateProgramWithBinaryIntelFPGA is called  11 \n");
           const char *preload =
               acl_getenv("CL_PRELOAD_SPLIT_BINARIES_INTELFPGA");
           if (!preload || std::string(preload) != "0") {
             // In split_kernel mode we have to load all aocx files
             // in the specified directory which cumulatively contain all the
             // kernels.
+            printf("Zibai debug clCreateProgramWithBinaryIntelFPGA is called  12 \n");
             auto result = acl_glob(std::string(context->program_library_root) +
                                    std::string("/kernel_*.aocx"));
             for (const auto &filename : result) {
@@ -371,11 +379,12 @@ CL_API_ENTRY cl_program CL_API_CALL clCreateProgramWithBinaryIntelFPGA(
               if (l != std::string::npos) {
                 kernel_name = kernel_name.substr(l + 1);
               }
-
+             printf("Zibai debug clCreateProgramWithBinaryIntelFPGA is called  13 \n");
               auto &dev_bin =
                   program->dev_prog[idev]->add_split_binary(kernel_name);
               dev_bin.load_content(filename);
               auto status = dev_bin.load_binary_pkg(0, 1);
+              printf("Zibai debug clCreateProgramWithBinaryIntelFPGA is called  14 \n");
               if (status != CL_SUCCESS) {
                 l_free_program(program);
                 if (binary_status) {
@@ -383,7 +392,7 @@ CL_API_ENTRY cl_program CL_API_CALL clCreateProgramWithBinaryIntelFPGA(
                 }
                 BAIL_INFO(CL_INVALID_BINARY, context, "Invalid binary");
               }
-
+             printf("Zibai debug clCreateProgramWithBinaryIntelFPGA is called  15 \n");
               // Need to unload the binary and only load it on an as needed
               // basis due to high memory usage when there are many split
               // binaries.
@@ -392,6 +401,7 @@ CL_API_ENTRY cl_program CL_API_CALL clCreateProgramWithBinaryIntelFPGA(
           }
         }
       } else {
+        printf("Zibai debug clCreateProgramWithBinaryIntelFPGA is called  16 \n");
         assert(!context->split_kernel);
         // Copy memory definition from initial device def to program in
         // CL_CONTEXT_COMPILER_MODE_INTELFPGA mode.
@@ -403,6 +413,7 @@ CL_API_ENTRY cl_program CL_API_CALL clCreateProgramWithBinaryIntelFPGA(
       }
     } else {
       // Release all the memory we've allocated.
+      printf("Zibai debug clCreateProgramWithBinaryIntelFPGA is called  17 \n");
       l_free_program(program);
       if (binary_status) {
         binary_status[idev] = CL_INVALID_VALUE;
@@ -413,6 +424,7 @@ CL_API_ENTRY cl_program CL_API_CALL clCreateProgramWithBinaryIntelFPGA(
 
     // Wait to set status until after failures may have occurred for this
     // device.
+    printf("Zibai debug clCreateProgramWithBinaryIntelFPGA is called  18 \n");
     if (binary_status) {
       binary_status[idev] = CL_SUCCESS;
     }
@@ -423,11 +435,11 @@ CL_API_ENTRY cl_program CL_API_CALL clCreateProgramWithBinaryIntelFPGA(
   if (errcode_ret) {
     *errcode_ret = CL_SUCCESS;
   }
-
+  printf("Zibai debug clCreateProgramWithBinaryIntelFPGA is called  19 \n");
   acl_track_object(ACL_OBJ_PROGRAM, program);
 
   l_try_to_eagerly_program_device(program);
-
+  printf("Zibai debug clCreateProgramWithBinaryIntelFPGA is called  20 \n");
   return program;
 }
 

@@ -171,12 +171,13 @@ void acl_device_binary_t::reload_content() const {
 cl_int acl_device_binary_t::load_binary_pkg(int validate_compile_options,
                                             int validate_memory_layout) {
   cl_int is_simulator;
+  printf("Zibai debug load_binary_pkg is called  0 \n");
   auto context = get_dev_prog()->program->context;
 #define FAILREAD_MSG "Could not read parts of the program binary."
   size_t data_len = 0;
-
+  printf("Zibai debug load_binary_pkg is called  1 \n");
   acl_assert_locked();
-
+  printf("Zibai debug load_binary_pkg is called  2 \n");
   if (acl_platform.offline_mode == ACL_CONTEXT_MPSIM &&
       !validate_compile_options &&
       context->compiler_mode != CL_CONTEXT_COMPILER_MODE_OFFLINE_INTELFPGA &&
@@ -186,7 +187,7 @@ cl_int acl_device_binary_t::load_binary_pkg(int validate_compile_options,
     // for emulator, by picking the first aocx we can find.
     // IF you set mode=3 and have more than one aocx file this might not
     // give you what you expect.
-
+    printf("Zibai debug load_binary_pkg is called  3 \n");
     auto result = acl_glob("*.aocx");
     if (result.empty()) {
       result = acl_glob("../*.aocx");
@@ -195,19 +196,21 @@ cl_int acl_device_binary_t::load_binary_pkg(int validate_compile_options,
                 "Can't find any aocx file in . or ..\n");
       }
     }
-
+    printf("Zibai debug load_binary_pkg is called  4 \n");
     load_content(result[0]);
     if (!get_content()) {
       ERR_RET(CL_INVALID_BINARY, context, "Can't read aocx file\n");
     }
+    printf("Zibai debug load_binary_pkg is called  5 \n");
   }
 
   // Open the package from the memory image.
   // Use 0 for show_mode, i.e. no user messages for anything.
+  printf("Zibai debug load_binary_pkg is called  6 \n");
   const auto pkg = get_binary_pkg();
   if (!pkg)
     ERR_RET(CL_INVALID_BINARY, context, "Binary file is malformed");
-
+  printf("Zibai debug load_binary_pkg is called  7 \n");
   auto status = CL_SUCCESS;
 
   // The hal printf will only result in output if ACL_DEBUG is set to > 0
@@ -217,12 +220,13 @@ cl_int acl_device_binary_t::load_binary_pkg(int validate_compile_options,
     acl_print_debug_msg(FAILMSG);                                              \
     acl_context_callback(context, FAILMSG);                                    \
   }
-
+  printf("Zibai debug load_binary_pkg is called  8, status is %d\n", status);
   // When extracting text sections, always allocate one more byte for the
   // terminating NUL.
 
   // Check board.
   // Must always be present, and match dev_prog->device
+  printf("Zibai debug load_binary_pkg is called  9 status is %d\n", status);
   AND_CHECK(acl_pkg_section_exists(pkg, ".acl.board", &data_len),
             CL_INVALID_BINARY,
             "Malformed program binary: missing .acl.board section");
@@ -231,7 +235,7 @@ cl_int acl_device_binary_t::load_binary_pkg(int validate_compile_options,
       acl_pkg_read_section(pkg, ".acl.board", pkg_board.data(), data_len + 1),
       CL_INVALID_BINARY, FAILREAD_MSG " (board)");
   std::string pkg_board_str{pkg_board.data()};
-
+  printf("Zibai debug load_binary_pkg is called  10 status is %d \n", status);
   // Check board name matches - first create error message, then do check
   std::stringstream errmsg;
   auto *dev_prog = get_dev_prog();
@@ -248,7 +252,7 @@ cl_int acl_device_binary_t::load_binary_pkg(int validate_compile_options,
               CL_INVALID_BINARY,
               errmsg.str().c_str()); // perform the board name check
   }
-
+  printf("Zibai debug load_binary_pkg is called  11 status is %d \n", status);
   // Check random hash.
   // Must always be present, and if matches - skip first reprogram
   // Note that this step must be done before new autodiscovery is loaded in the
@@ -271,7 +275,7 @@ cl_int acl_device_binary_t::load_binary_pkg(int validate_compile_options,
       dev_prog->device->loaded_bin = this;
     }
   }
-
+  printf("Zibai debug load_binary_pkg is called  12 status is %d\n", status);
   // Check autodiscovery.
   AND_CHECK(acl_pkg_section_exists(pkg, ".acl.autodiscovery", &data_len),
             CL_INVALID_BINARY,
@@ -286,17 +290,18 @@ cl_int acl_device_binary_t::load_binary_pkg(int validate_compile_options,
   AND_CHECK(pkg_autodiscovery_str.length() > 4, CL_INVALID_BINARY,
             "Invalid .acl.autodiscovery section in program binary");
   // Load the system configuration, so we get the kernel interfaces.
+  printf("Zibai debug load_binary_pkg is called  12.5 status is %d\n", status);
   if (status == CL_SUCCESS) {
     std::string err;
     auto ok = acl_load_device_def_from_str(pkg_autodiscovery_str,
-                                           get_devdef().autodiscovery_def, err);
+                                           get_devdef().autodiscovery_def, err); // zibai debug, load autodiscovery string failed
     if (!ok) {
       acl_context_callback(
           context, "Malformed program interface definition found in binary: ");
       acl_context_callback(context, err.c_str());
       status = CL_INVALID_BINARY;
     }
-
+  printf("Zibai debug load_binary_pkg is called  13 status is %d\n", status);
     // Check that memory layout does not change across reprograms.
     if (status == CL_SUCCESS && ok) {
       // For simulator flow, we treat as if the device has already been
@@ -350,7 +355,7 @@ cl_int acl_device_binary_t::load_binary_pkg(int validate_compile_options,
       }
     }
   }
-
+  printf("Zibai debug load_binary_pkg is called  14 status is %d \n", status);
   is_simulator = 0;
   if (status == CL_SUCCESS &&
       acl_pkg_section_exists(pkg, ".acl.simulator_object", &data_len)) {
@@ -385,7 +390,7 @@ cl_int acl_device_binary_t::load_binary_pkg(int validate_compile_options,
                          "Simulation mode set but aocx is for hardware!");
     status = CL_INVALID_BINARY;
   }
-
+  printf("Zibai debug load_binary_pkg is called  15 status is %d \n", status);
   if (validate_compile_options) {
     // Check autodiscovery.
     AND_CHECK(acl_pkg_section_exists(pkg, ".acl.compileoptions", &data_len),
@@ -398,7 +403,7 @@ cl_int acl_device_binary_t::load_binary_pkg(int validate_compile_options,
     AND_CHECK(std::string(pkg_compileoptions.data()) == dev_prog->build_options,
               CL_INVALID_BINARY,
               "Program was built with different compile options");
-
+    printf("Zibai debug load_binary_pkg is called  16 status is %d\n", status);
     // Check hash of source+options. Don't do so for binaries loaded by the
     // simulator.
     if (!dev_prog->hash.empty()) {
@@ -418,8 +423,9 @@ cl_int acl_device_binary_t::load_binary_pkg(int validate_compile_options,
                 "hashing)");
     }
   }
-
+  printf("Zibai debug load_binary_pkg is called  17 status is %d \n", status);
   // Validate that kernel endianness matches host system
+  printf("zibai debug status is %d before checking l_is_host_big_endian() \n", status);
   if (status == CL_SUCCESS) {
     if (l_is_host_big_endian() !=
         get_devdef().autodiscovery_def.is_big_endian) {
@@ -427,19 +433,24 @@ cl_int acl_device_binary_t::load_binary_pkg(int validate_compile_options,
           context, "Endianness mismatch between host system and device binary");
       if (l_is_host_big_endian()) {
         acl_context_callback(context, "Host is big endian");
+        printf("zibai debug Host is big endian \n");
       } else {
         acl_context_callback(context, "Host is little endian");
+        printf("zibai debug Host is little endian \n");
       }
       if (get_devdef().autodiscovery_def.is_big_endian) {
         acl_context_callback(context, "Device is big endian");
+        printf("zibai debug Device is big endian \n");
       } else {
         acl_context_callback(context, "Device is little endian");
+        printf("zibai debug Device is little endian \n");
       }
 
       status = CL_INVALID_BINARY; // Fail on the endianness mismatch
     }
   }
-
+  printf("zibai debug status is %d after checking l_is_host_big_endian() \n", status);
+  printf("Zibai debug load_binary_pkg is called  18 \n");
 #undef AND_CHECK
 
   return status;
