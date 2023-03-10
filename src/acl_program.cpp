@@ -85,6 +85,9 @@
 //             - reference to interface
 //             - argument values
 
+// Zibai debug
+static bool program_hostpipe_registered = false;
+
 ACL_DEFINE_CL_OBJECT_ALLOC_FUNCTIONS(cl_program);
 
 //////////////////////////////
@@ -107,6 +110,7 @@ static void l_try_to_eagerly_program_device(cl_program program);
 static void
 l_device_memory_definition_copy(acl_device_def_autodiscovery_t *dest_dev,
                                 acl_device_def_autodiscovery_t *src_dev);
+static cl_int l_register_hostpipes_to_program(acl_device_program_info_t *dev_prog, const acl_device_def_autodiscovery_t &devdef, unsigned int physical_device_id, cl_context context);
 //////////////////////////////
 // OpenCL API
 
@@ -421,7 +425,7 @@ CL_API_ENTRY cl_program CL_API_CALL clCreateProgramWithBinaryIntelFPGA(
       BAIL_INFO(CL_OUT_OF_HOST_MEMORY, context,
                 "Could not allocate memory to store program binaries");
     }
-
+    
     // Wait to set status until after failures may have occurred for this
     // device.
     printf("Zibai debug clCreateProgramWithBinaryIntelFPGA is called  18 \n");
@@ -440,6 +444,11 @@ CL_API_ENTRY cl_program CL_API_CALL clCreateProgramWithBinaryIntelFPGA(
 
   l_try_to_eagerly_program_device(program);
   printf("Zibai debug clCreateProgramWithBinaryIntelFPGA is called  20 \n");
+  for (idev = 0; idev < num_devices; idev++) {
+    l_register_hostpipes_to_program(program->dev_prog[idev], program->dev_prog[idev]->device_binary.get_devdef().autodiscovery_def, idev, context);
+    printf("Zibai debug clCreateProgramWithBinaryIntelFPGA is called  20.5 \n");
+  }
+  printf("Zibai debug clCreateProgramWithBinaryIntelFPGA is called  21 \n");
   return program;
 }
 
@@ -1317,13 +1326,20 @@ l_create_dev_prog(cl_program program, cl_device_id device, size_t binary_len,
 
 static cl_int l_register_hostpipes_to_program(acl_device_program_info_t *dev_prog, const acl_device_def_autodiscovery_t &devdef, unsigned int physical_device_id, cl_context context) {
 
+  if (program_hostpipe_registered) return CL_SUCCESS;
+
   host_pipe_t host_pipe_info;
 
   // Loop through all hostpipe mappings
   // Todo: handle multiple logical pipe mape to same physical pipe scenario?
-  // Does hostchannel_create() return same handle with same device_id and pysical id? Hopefully the same!
-
+  printf("Zibai debug l_register_hostpipes_to_program is called 1 \n");
   for (const auto &hostpipe : devdef.hostpipe_mappings) {
+    // Skip if the hostpipe is already registered in the program
+    auto search = dev_prog->program_hostpipe_map.find(hostpipe.logical_name);
+    if (search != dev_prog->program_hostpipe_map.end()){
+       continue;
+    }
+
     host_pipe_t host_pipe_info;
     host_pipe_info.m_physical_device_id = physical_device_id;
     if (hostpipe.is_read && hostpipe.is_write){
@@ -1332,15 +1348,34 @@ static cl_int l_register_hostpipes_to_program(acl_device_program_info_t *dev_pro
     if (!hostpipe.is_read && !hostpipe.is_write){
       ERR_RET(CL_INVALID_OPERATION, context, "The hostpipe direction is not set.");
     }
+    std::cout << "Zibai debug, physical device id is " << physical_device_id << " hostpipe physical name is " << hostpipe.physical_name << " depth is " << hostpipe.pipe_depth << " width is " << hostpipe.pipe_width << " is read is " << !hostpipe.is_read << " \n";
+
     host_pipe_info.m_channel_handle =
         acl_get_hal()->hostchannel_create(physical_device_id,
             (char *)hostpipe.physical_name.c_str(),
             hostpipe.pipe_depth,
-            hostpipe.pipe_width, !hostpipe.is_read); // If it's a read pipe, pass 0 to the hostchannel_create
+            hostpipe.pipe_width, hostpipe.is_read); // If it's a read pipe, pass 1 to the hostchannel_create, which is HOST_TO_DEVICE
+    // Zibai testing start
+    // size_t buffer_size;
+    //   int status = 0;
+    //   void *buffer;
+    //   buffer = acl_get_hal()->hostchannel_get_buffer(
+    //       physical_device_id,
+    //       host_pipe_info.m_channel_handle, &buffer_size, &status);
+    // if (buffer == NULL){
+    //    std::cout << "Zibai debug, get_buffer is NULL!!!!\n";
+    // }
+    // Zibai testing end
+    if (host_pipe_info.m_channel_handle <= 0) {
+      return CL_INVALID_VALUE;
+    }
     acl_mutex_init(&(host_pipe_info.m_lock), NULL);
     dev_prog->program_hostpipe_map[hostpipe.logical_name] = host_pipe_info;
+    std::cout << "Zibai debug, hostpipe logical name " << hostpipe.logical_name << "is being registered to the program \n";
+    std::cout << "Zibai debug, hostpipe" << hostpipe.logical_name << "has the m_channel_handle " << host_pipe_info.m_channel_handle << " \n";
   }
-
+  printf("Zibai debug l_register_hostpipes_to_program is called 2 \n");
+  program_hostpipe_registered = true;
   return CL_SUCCESS;
 }
 
@@ -1349,6 +1384,7 @@ static cl_int l_register_hostpipes_to_program(acl_device_program_info_t *dev_pro
 static cl_int l_build_program_for_device(cl_program program,
                                          unsigned int dev_idx,
                                          const char *options) {
+  printf("XXXXXXXXXXXXXXXXXXXX Zibai debug l_build_program_for_device is called 1\n");
   acl_device_program_info_t *dev_prog = 0;
   cl_context context;
   int build_status; // CL_BUILD_IN_PROGRESS, CL_BUILD_ERROR, or
@@ -1435,8 +1471,6 @@ static cl_int l_build_program_for_device(cl_program program,
   } else {
     dev_prog->build_log = "Trivial build";
   }
-  // Map hostpipe, Zibai Change
-  l_register_hostpipes_to_program(dev_prog, dev_prog->device_binary.get_devdef().autodiscovery_def, dev_prog->device_binary.get_devdef().physical_device_id, context);
 
   // If no errors, then all is ok!
   if (build_status == CL_BUILD_IN_PROGRESS)

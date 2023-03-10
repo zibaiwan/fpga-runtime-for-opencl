@@ -791,7 +791,6 @@ cl_int acl_create_event(cl_command_queue command_queue, cl_uint num_events,
   cl_int result;
   cl_context context;
   acl_assert_locked();
-
   // defensively guarding that the reference of return event passed by the
   // caller should be valid
   assert(new_event_ret &&

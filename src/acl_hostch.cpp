@@ -30,16 +30,18 @@ static cl_int l_push_packet(unsigned int physical_device_id, int channel_handle,
                             void *host_buffer, size_t write_size) {
   size_t pushed_data;
   int status = 0;
-
+  std::cout << "Zibai debug l_push_packet calling hostchannel_push with value " << *((int *) host_buffer) << " \n";
   pushed_data = acl_get_hal()->hostchannel_push(
       physical_device_id, channel_handle, host_buffer, write_size, &status);
   assert(status == 0);
   if (pushed_data == write_size) {
+    std::cout << "Zibai debug l_push_packet succeed \n";
     return CL_SUCCESS;
   } else {
     // The packet is the smallest unit of data you can send over.
     // If it didn't send the packet, it shouldn't have sent over anything
     assert(pushed_data == 0);
+    std::cout << "Zibai debug l_push_packet returned pipe full \n";
     return CL_PIPE_FULL;
   }
 }
@@ -692,7 +694,7 @@ void acl_read_program_hostpipe(void *user_data, acl_device_op_t *op){
 
     cl_event event = op->info.event;
     cl_int status = 0;
-    size_t pulled_data;
+    size_t pulled_data = 0;
     cl_context context = event->context;
     bool blocking = event->cmd.info.host_pipe_info.blocking;
     acl_assert_locked();
@@ -708,34 +710,43 @@ void acl_read_program_hostpipe(void *user_data, acl_device_op_t *op){
     acl_mutex_lock(&(host_pipe_info.m_lock));
     acl_set_device_op_execution_status(op, CL_SUBMITTED);
     acl_set_device_op_execution_status(op, CL_RUNNING);
-
+    std::cout << "Zibai debug acl_read_program_hostpipe m_physical_device_id is " << event->cmd.info.host_pipe_info.m_physical_device_id << "\n";
+    std::cout << "Zibai debug, acl_read_program_hostpipe reading from the m_channel_handle " << event->cmd.info.host_pipe_info.m_channel_handle << " \n";
+    std::cout << "Zibai debug, acl_read_program_hostpipe cmd.info.host_pipe_info.size is " << event->cmd.info.host_pipe_info.size << " \n";
     pulled_data = acl_get_hal()->hostchannel_pull(
         event->cmd.info.host_pipe_info.m_physical_device_id,
         event->cmd.info.host_pipe_info.m_channel_handle, event->cmd.info.host_pipe_info.ptr, event->cmd.info.host_pipe_info.size, &status);
-
+    std::cout << "Zibai debug, acl_read_program_hostpipe, what is the status after first read " << status << " \n";
     if (!blocking){
       // If it is non-blocking read, we return with the error right away
+      std::cout << "Zibai debug, acl_read_program_hostpipe, it'a non-blocking read " << status << " \n";
       if (status != 0 || pulled_data != event->cmd.info.host_pipe_info.size) {
+          std::cout << "Zibai debug, acl_read_program_hostpipe, read fail?\n";
           acl_mutex_unlock(&(host_pipe_info.m_lock));
-          acl_context_callback(context, "TODO BETTER ERROR, Empty pipe!");
+          // acl_context_callback(context, "TODO BETTER ERROR, Empty pipe!"); probably don't need this
           acl_set_device_op_execution_status(op, -1);
+          return;
       }
     } else{
       // If it is a blocking read, this call won't return until the kernel writes the data into the pipe.
+      // TODO: Check whether status != 0 needed below
       while (status != 0 || pulled_data != event->cmd.info.host_pipe_info.size){
         pulled_data = acl_get_hal()->hostchannel_pull(
         event->cmd.info.host_pipe_info.m_physical_device_id,
         event->cmd.info.host_pipe_info.m_channel_handle, event->cmd.info.host_pipe_info.ptr, event->cmd.info.host_pipe_info.size, &status);
       }
     }
+    std::cout << "zibai debug acl_read_program_hostpipe host_pipe_info.ptr value is " << *(int *)(event->cmd.info.host_pipe_info.ptr) << " \n";
+    std::cout << "Zibai debug acl_read_program_hostpipe, host_pipe_info.ptr address is " << event->cmd.info.host_pipe_info.ptr << "\n";
     acl_mutex_unlock(&(host_pipe_info.m_lock));
+    acl_set_device_op_execution_status(op, CL_COMPLETE);
 }
 
 void acl_write_program_hostpipe(void *user_data, acl_device_op_t *op){
 
   // TODO LOCKING  mutext, can use event->command_queue->device->device_prog->hostpipe_mapping->logical name to find the hostmap, 
   // which means, event needs to add logical name in the event->cmd.info.host_pipe_info
-
+  std::cout << ("Zibai debug acl_write_program_hostpipe is called 1! \n");
   cl_int status;
   cl_event event = op->info.event;
   cl_context context = event->context;
@@ -753,15 +764,18 @@ void acl_write_program_hostpipe(void *user_data, acl_device_op_t *op){
   acl_mutex_lock(&(host_pipe_info.m_lock));
   acl_set_device_op_execution_status(op, CL_SUBMITTED);
   acl_set_device_op_execution_status(op, CL_RUNNING);
-
+  std::cout << "Zibai debug acl_write_program_hostpipe m_physical_device_id is " << event->cmd.info.host_pipe_info.m_physical_device_id << "\n";
+  std::cout << "Zibai debug, acl_write_program_hostpipe writing into using the m_channel_handle " << event->cmd.info.host_pipe_info.m_channel_handle << " \n";
+  std::cout << "Zibai debug, acl_write_program_hostpipe writing into with the value " << *((int *)event->cmd.info.host_pipe_info.ptr) << " \n";
   status = l_push_packet(event->cmd.info.host_pipe_info.m_physical_device_id,
                         event->cmd.info.host_pipe_info.m_channel_handle, event->cmd.info.host_pipe_info.ptr,
                         event->cmd.info.host_pipe_info.size);
+  std::cout << "Zibai debug, acl_write_program_hostpipe l_push_packet returned status is " << status << "\n";
   if (!blocking){
     // If it is non-blocking write, we return with the error right away
     if (status != CL_SUCCESS) {
       acl_mutex_unlock(&(host_pipe_info.m_lock));
-      acl_context_callback(context, "TODO BETTER ERROR, PIPE FULL");
+      // acl_context_callback(context, "TODO BETTER ERROR, PIPE FULL"); probably not need this.
       acl_set_device_op_execution_status(op, -1);
     }
   }
@@ -771,9 +785,12 @@ void acl_write_program_hostpipe(void *user_data, acl_device_op_t *op){
       status = l_push_packet(event->cmd.info.host_pipe_info.m_physical_device_id,
                       event->cmd.info.host_pipe_info.m_channel_handle, event->cmd.info.host_pipe_info.ptr,
                       event->cmd.info.host_pipe_info.size);
+      std::cout << "Zibai debug, acl_write_program_hostpipe stuck in the for loop? \n";
     }
   }
   acl_mutex_unlock(&(host_pipe_info.m_lock));
+  acl_set_device_op_execution_status(op, CL_COMPLETE);
+  std::cout << ("Zibai debug acl_write_program_hostpipe is called 2, Success! \n");
 }
 
 // Submit an op to the device op queue to read hostpipe.
@@ -895,6 +912,7 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueReadHostPipeINTEL(
                                     cl_uint num_events_in_wait_list,
                                     const cl_event* event_wait_list,
                                     cl_event* event){
+    printf("Zibai debug clEnqueueReadHostPipeINTEL is called in opencl runtime 1 \n");
 
     cl_int status = 0;
 
@@ -904,10 +922,8 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueReadHostPipeINTEL(
     cl_context context = program->context;
     cl_device_id device = command_queue->device;
 
-    {
     std::scoped_lock lock{acl_mutex_wrapper};
     acl_idle_update(context);  // Zibai double check whether this acl_idle_update is really needed.
-    }
 
     if (ptr == NULL) {
       ERR_RET(CL_INVALID_VALUE, context, "Invalid pointer was provided to host data");
@@ -950,6 +966,11 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueReadHostPipeINTEL(
     auto search = dev_prog->program_hostpipe_map.find(std::string(pipe_symbol));
 
     if (search == dev_prog->program_hostpipe_map.end()){
+      ERR_RET(CL_INVALID_VALUE, context, "Pipe Symbol is not found in the device");
+    }
+
+    if (search == dev_prog->program_hostpipe_map.end()){
+      std::cout << ("Zibai debug clEnqueueReadHostPipeINTEL is called, not found in the hostpipe map\n");
       ERR_RET(CL_INVALID_VALUE, context, "Pipe Symbol is not found in the device");
     }
 
@@ -1007,15 +1028,14 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueWriteHostPipeINTEL(
                                     cl_uint num_events_in_wait_list,
                                     const cl_event* event_wait_list,
                                     cl_event* event){
+    std::cout << ("Zibai debug clEnqueueWriteHostPipeINTEL is called in opencl runtime 1 \n");
     cl_int status = 0;
     // Get context from program, command_queue and event
     cl_context context = program->context;
     cl_device_id device = command_queue->device;
 
-    {
     std::scoped_lock lock{acl_mutex_wrapper};
     acl_idle_update(context);  // Zibai double check whether this acl_idle_update is really needed.
-    }
                       
     if (ptr == NULL) {
       ERR_RET(CL_INVALID_VALUE, context, "Invalid pointer was provided to host data");
@@ -1030,18 +1050,19 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueWriteHostPipeINTEL(
     auto search = dev_prog->program_hostpipe_map.find(std::string(pipe_symbol));
 
     if (search == dev_prog->program_hostpipe_map.end()){
+      std::cout << ("Zibai debug clEnqueueWriteHostPipeINTEL is called, not found in the hostpipe map\n");
       ERR_RET(CL_INVALID_VALUE, context, "Pipe Symbol is not found in the device");
     }
-
+    std::cout << ("Zibai debug clEnqueueWriteHostPipeINTEL is called in opencl runtime 2 \n");
     // TODO: use pointer here is fine right?
     auto host_pipe_info = dev_prog->program_hostpipe_map.at(std::string(pipe_symbol));
 
     cl_event local_event = 0; // used for blocking
-
+    std::cout << ("Zibai debug clEnqueueWriteHostPipeINTEL is called in opencl runtime 3 \n");
     // Create an event/command to actually move the data at the appropriate
     // time.
     status = acl_create_event(command_queue, num_events_in_wait_list, event_wait_list, CL_COMMAND_WRITE_HOST_PIPE_INTEL_FPGA, &local_event);
-
+    std::cout << ("Zibai debug clEnqueueWriteHostPipeINTEL is called in opencl runtime 4 \n");
     if (status != CL_SUCCESS)
       return status;
 
@@ -1053,13 +1074,13 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueWriteHostPipeINTEL(
     local_event->cmd.info.host_pipe_info.logical_name = pipe_symbol;
 
     acl_idle_update(command_queue->context); // If nothing's blocking, then complete right away
-
+    std::cout << ("Zibai debug clEnqueueWriteHostPipeINTEL is called in opencl runtime 5 \n");
     // Zibai Todo, change this, cannot use clWaitForEvents
     if (blocking_write) {
       status = clWaitForEvents(1, &local_event);
     }
 
-
+    std::cout << ("Zibai debug clEnqueueWriteHostPipeINTEL is called in opencl runtime 6 \n");
     if (event) {
       *event = local_event;
     } else {
@@ -1067,6 +1088,7 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueWriteHostPipeINTEL(
       clReleaseEvent(local_event);
       acl_idle_update(command_queue->context); // Clean up early
     }
+    std::cout << ("Zibai debug clEnqueueWriteHostPipeINTEL is called in opencl runtime 7, Success! \n");
     return CL_SUCCESS;
 }
 

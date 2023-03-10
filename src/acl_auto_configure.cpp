@@ -170,7 +170,6 @@ static bool read_int_counters(const std::string &str,
   pos = read_word(str, pos, result);
   decrement_section_counters(counters);
   try {
-    std::cout << "zibai debug read_int_counters debug" << result << "\n"; // here is reading _ZTS8TestTask? zibai debug
     val = std::stoi(result);
   } catch (const std::exception &e) {
     UNREFERENCED_PARAMETER(e);
@@ -842,13 +841,10 @@ static bool read_accel_defs(const std::string &config_str,
   auto num_accel = 0U;
   std::cout << "zibai debug config string is " << config_str << "\n";
   bool result = read_uint_counters(config_str, curr_pos, num_accel, counters);
-  printf("zibai debug read_accel_defs string 1 result is %d \n", result);
-  printf("zibai debug num_accessl is %d \n", num_accel);
   if (result) {
     accel = std::vector<acl_accel_def_t>(num_accel);
     hal_info = std::vector<acl_hal_accel_def_t>(num_accel);
   }
-  printf("zibai debug read_accel_defs string 2 result is %d \n", result); // zibai debug here result is good
   // Setup the accelerators
   for (auto i = 0U; result && (i < num_accel); i++) {
     accel[i].id = i;
@@ -860,14 +856,14 @@ static bool read_accel_defs(const std::string &config_str,
     result = result && read_int_counters(config_str, curr_pos,
                                          total_fields_kernel, counters);
     counters.emplace_back(total_fields_kernel);
-    printf("zibai debug read_accel_defs string 3 result is %d \n", result); // zibai debug here result is bad
+
     result = result && read_string_counters(config_str, curr_pos,
                                             hal_info[i].name, counters);
 
     if (!result)
       break;
     accel[i].iface.name = hal_info[i].name;
-    printf("zibai debug read_accel_defs string 4 result is %d \n", result);
+
     // Get kernel CRA address and range.
     // The address is the offset from the CRA address of the first kernel CRA.
     // That first kernel CRA comes after, for example, the PCIE CRA.
@@ -876,7 +872,7 @@ static bool read_accel_defs(const std::string &config_str,
                                 counters) &&
              read_uint_counters(config_str, curr_pos, hal_info[i].csr.num_bytes,
                                 counters);
-    printf("zibai debug read_accel_defs string 5 result is %d \n", result);
+
     result = result && read_uint_counters(config_str, curr_pos,
                                           accel[i].fast_launch_depth, counters);
 
@@ -888,7 +884,7 @@ static bool read_accel_defs(const std::string &config_str,
                                 hal_info[i].perf_mon.address, counters) &&
              read_uint_counters(config_str, curr_pos,
                                 hal_info[i].perf_mon.num_bytes, counters);
-    printf("zibai debug read_accel_defs string 6 result is %d \n", result);
+
     // Determine whether the kernel is workgroup-invariant.
     result =
         result && read_uint_counters(config_str, curr_pos,
@@ -908,7 +904,7 @@ static bool read_accel_defs(const std::string &config_str,
       err_str = err_ss.str();
       result = false;
     }
-    printf("zibai debug read_accel_defs string 7 result is %d \n", result);
+
     // Determine whether the kernel is vectorized.
     result = result && read_uint_counters(config_str, curr_pos,
                                           accel[i].num_vector_lanes, counters);
@@ -917,7 +913,7 @@ static bool read_accel_defs(const std::string &config_str,
     result = result &&
              read_uint_counters(config_str, curr_pos,
                                 accel[i].profiling_words_to_readback, counters);
-    printf("zibai debug read_accel_defs string 8 result is %d \n", result);
+
     result =
         result && read_kernel_args(config_str, kernel_arg_info_available,
                                    curr_pos, accel[i].iface.args, counters);
@@ -928,7 +924,7 @@ static bool read_accel_defs(const std::string &config_str,
                                           num_printf_format_strings, counters);
     accel[i].printf_format_info =
         std::vector<acl_printf_info_t>(num_printf_format_strings);
-    printf("zibai debug read_accel_defs string 9 result is %d \n", result);
+
     // Disable fast relaunch when kernel has printf
     if (accel[i].printf_format_info.size() > 0) {
       accel[i].fast_launch_depth = 0;
@@ -940,7 +936,7 @@ static bool read_accel_defs(const std::string &config_str,
       result = read_int_counters(config_str, curr_pos, total_fields_printf,
                                  counters);
     }
-    printf("zibai debug read_accel_defs string 10 result is %d \n", result);
+
     for (auto j = 0U; result && (j < accel[i].printf_format_info.size()); j++) {
       counters.emplace_back(total_fields_printf);
       result =
@@ -954,7 +950,7 @@ static bool read_accel_defs(const std::string &config_str,
         Since the introduction of autodiscovery forwards-compatibility,
         new entries for each kernel's 'printf' section start here.
        ******************************************************************/
-      printf("zibai debug read_accel_defs string 11 result is %d \n", result);
+
       // forward compatibility: bypassing remaining fields at the end of
       // printf calls section
       while (result && counters.size() > 0 &&
@@ -966,14 +962,14 @@ static bool read_accel_defs(const std::string &config_str,
       }
       counters.pop_back();
     }
-    printf("zibai debug read_accel_defs string 12 result is %d \n", result);
+
     // Read the number of local mem systems, then aspaceID and static
     // demand for each.
     if (result) {
       auto num_local_aspaces = 0U;
       result =
           read_uint_counters(config_str, curr_pos, num_local_aspaces, counters);
-      printf("zibai debug read_accel_defs string 13 result is %d \n", result);
+
       int total_fields_local_aspaces = 0;
       // Read the number of fields in local mem systems
       if (result) {
@@ -982,7 +978,7 @@ static bool read_accel_defs(const std::string &config_str,
       }
       accel[i].local_aspaces =
           std::vector<acl_local_aspace_info>(num_local_aspaces);
-      printf("zibai debug read_accel_defs string 14 result is %d \n", result);
+
       for (auto it = 0U; it < num_local_aspaces && result; ++it) {
         counters.emplace_back(total_fields_local_aspaces);
         result = read_uint_counters(config_str, curr_pos,
@@ -991,7 +987,7 @@ static bool read_accel_defs(const std::string &config_str,
                  read_uint_counters(config_str, curr_pos,
                                     accel[i].local_aspaces[it].static_demand,
                                     counters);
-      printf("zibai debug read_accel_defs string 15 result is %d \n", result);
+
         /****************************************************************
           Since the introduction of autodiscovery forwards-compatibility,
           new entries for each kernel's 'local memory systems' section
@@ -1010,7 +1006,7 @@ static bool read_accel_defs(const std::string &config_str,
         counters.pop_back();
       }
     }
-    printf("zibai debug read_accel_defs string 16 result is %d \n", result);
+
     // Parse kernel attribute reqd_work_group_size.
     if (result) {
       std::vector<unsigned> wgs = {0U, 0U, 0U};
@@ -1026,7 +1022,7 @@ static bool read_accel_defs(const std::string &config_str,
     accel[i].max_work_group_size_arr[0] = 0;
     accel[i].max_work_group_size_arr[1] = 0;
     accel[i].max_work_group_size_arr[2] = 0;
-    printf("zibai debug read_accel_defs string 17 result is %d \n", result);
+
     // Parse kernel attribute max_work_group_size.
     if (result) {
       auto num_vals = 0U;
@@ -1050,12 +1046,12 @@ static bool read_accel_defs(const std::string &config_str,
         }
       }
     }
-    printf("zibai debug read_accel_defs string 18 result is %d \n", result);
+
     if (result) {
       result = read_uint_counters(config_str, curr_pos,
                                   accel[i].max_global_work_dim, counters);
     }
-    printf("zibai debug read_accel_defs string 19 result is %d \n", result);
+
     if (result) {
       result = read_uint_counters(config_str, curr_pos,
                                   accel[i].uses_global_work_offset, counters);
@@ -1070,13 +1066,13 @@ static bool read_accel_defs(const std::string &config_str,
       result = read_uint_counters(config_str, curr_pos,
                                   accel[i].is_sycl_compile, counters);
     }
-    printf("zibai debug read_accel_defs string 20 result is %d \n", result);
+
     if (result && counters.back() > 0) {
       result = read_streaming_kernel_control_info(
           config_str, curr_pos, accel[i].streaming_control_info_available,
           accel[i].streaming_control_info, counters);
     }
-    printf("zibai debug read_accel_defs string 21 result is %d \n", result);
+
     // forward compatibility: bypassing remaining fields at the end of kernel
     // description section
     while (result && counters.size() > 0 &&
@@ -1088,12 +1084,12 @@ static bool read_accel_defs(const std::string &config_str,
     }
     counters.pop_back();
   }
-  printf("zibai debug read_accel_defs string 22 result is %d \n", result);
+
   if (!result) {
     accel.clear();
     hal_info.clear();
   }
-  printf("zibai debug read_accel_defs string 23 result is %d \n", result);
+
   return result;
 }
 
@@ -1196,25 +1192,25 @@ bool acl_load_device_def_from_str(const std::string &config_str,
     result = read_uint_counters(config_str, curr_pos, kernel_arg_info_available,
                                 counters);
   }
-  printf("zibai debug read auto discovery string 1 result is %d \n", result);
+
   // Read device global information.
   if (result && counters.back() > 0) {
     result = read_device_global_mem_defs(
         config_str, curr_pos, devdef.device_global_mem_defs, counters, err_str);
   }
-  printf("zibai debug read auto discovery string 2 result is %d \n", result);
+
   // Check whether csr_ring_root exist in the IP.
   if (result && counters.back() > 0) {
     result = read_bool_counters(config_str, curr_pos,
                                 devdef.cra_ring_root_exist, counters);
   }
-  printf("zibai debug read auto discovery string 3 result is %d \n", result);
+
   //Read program scoped hostpipes mappings
   if (result && counters.back() > 0) {
     result = read_hostpipe_mappings(
         config_str, curr_pos, devdef.hostpipe_mappings, counters, err_str);
   }
-  printf("zibai debug read auto discovery string 4 result is %d \n", result);
+
   // forward compatibility: bypassing remaining fields at the end of device
   // description section
   while (result && counters.size() > 0 &&
@@ -1225,20 +1221,20 @@ bool acl_load_device_def_from_str(const std::string &config_str,
     check_section_counters(counters);
   }
   counters.pop_back(); // removing total_fields
-  printf("zibai debug read auto discovery string 5 result is %d \n", result); // here result is good
+
   // Set up kernel description
   if (result) {
     result = read_accel_defs(config_str, curr_pos, kernel_arg_info_available,
                              devdef.accel, devdef.hal_info, counters, err_str);
   }
-  printf("zibai debug read auto discovery string 6 result is %d \n", result); //here result is bad
+
   if (!result && err_str.empty()) {
     std::stringstream err_ss;
     err_ss << "FAILED to read auto-discovery string at byte " << curr_pos
            << ". Full auto-discovery string value is " << config_str << "\n";
     err_str = err_ss.str();
   }
-  printf("zibai debug read auto discovery string 7 result is %d \n", result);
+
   return result;
 }
 
