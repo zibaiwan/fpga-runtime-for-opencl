@@ -646,8 +646,10 @@ static bool read_hostpipe_mappings(
                                   counters) &&
              read_bool_counters(config_str, curr_pos, mapping.implement_in_csr,
                                 counters) &&
-             read_uintptr_counters(config_str, curr_pos, mapping.csr_address,
-                                   counters) &&
+            //  read_uintptr_counters(config_str, curr_pos, mapping.csr_address,
+            //                        counters) && // TODO FIX THIS
+             read_string_counters(config_str, curr_pos, mapping.csr_address,
+                                  counters) &&
              read_bool_counters(config_str, curr_pos, mapping.is_read,
                                 counters) &&
              read_bool_counters(config_str, curr_pos, mapping.is_write,

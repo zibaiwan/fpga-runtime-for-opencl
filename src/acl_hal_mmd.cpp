@@ -126,7 +126,7 @@ size_t acl_hal_mmd_hostchannel_pull(unsigned int physical_device_id,
                                     int channel_handle, void *host_buffer,
                                     size_t read_size, int *status);
 size_t acl_hal_mmd_hostchannel_push(unsigned int physical_device_id,
-                                    int channel_handle, void *host_buffer,
+                                    int channel_handle, const void *host_buffer,
                                     size_t write_size, int *status);
 void *acl_hal_mmd_hostchannel_get_buffer(unsigned int physical_device_id,
                                          int channel_handle,
@@ -2200,11 +2200,13 @@ size_t acl_hal_mmd_hostchannel_pull(unsigned int physical_device_id,
   pull_buffer = device_info[physical_device_id]
                     .mmd_dispatch->aocl_mmd_hostchannel_get_buffer(
                         pcie_dev_handle, channel_handle, &buffer_size, status);
-  std::cout << "zibai debug acl_hal_mmd_hostchannel_pull, after pull buffer, status is " << *status << "\n";
+  // std::cout << "zibai debug acl_hal_mmd_hostchannel_pull, after pull buffer, status is " << *status << "\n";
   if ((NULL == pull_buffer) || (0 == buffer_size)) {
-    std::cout << "zibai debug acl_hal_mmd_hostchannel_pull, something went wrong \n";
+    // std::cout << "zibai debug acl_hal_mmd_hostchannel_pull, something went wrong \n";
     return 0;
   }
+
+  std::cout << "zibai debug acl_hal_mmd_hostchannel_pull, after pull buffer, what is buffer size" << buffer_size << "\n";
 
   // How much can be pulled to user buffer
   buffer_size = (read_size > buffer_size) ? buffer_size : read_size;
@@ -2231,7 +2233,7 @@ size_t acl_hal_mmd_hostchannel_pull(unsigned int physical_device_id,
 }
 
 size_t acl_hal_mmd_hostchannel_push(unsigned int physical_device_id,
-                                    int channel_handle, void *host_buffer,
+                                    int channel_handle, const void* host_buffer,
                                     size_t write_size, int *status) {
   size_t buffer_size = 0;
   size_t pushed;

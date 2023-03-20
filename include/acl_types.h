@@ -601,6 +601,7 @@ typedef struct {
         int m_channel_handle;
         size_t size;
         void* ptr;
+        const void* write_ptr;
         bool blocking;
         const char* logical_name; //Use char* instead string here due to a compilation error from acl_command_info_t constructor malloc related
     } host_pipe_info;

@@ -205,7 +205,7 @@ typedef struct {
                              size_t read_size, int *status);
   /// Push write_size of data to the device from host_buffer
   size_t (*hostchannel_push)(unsigned int physical_device_id,
-                             int channel_handle, void *host_buffer,
+                             int channel_handle, const void *host_buffer,
                              size_t write_size, int *status);
   /// Get a pointer to the mmd buffer for the host channel
   void *(*hostchannel_get_buffer)(unsigned int physical_device_id,

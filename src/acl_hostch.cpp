@@ -27,7 +27,7 @@
 
 /* Local Functions */
 static cl_int l_push_packet(unsigned int physical_device_id, int channel_handle,
-                            void *host_buffer, size_t write_size) {
+                            const void* host_buffer, size_t write_size) {
   size_t pushed_data;
   int status = 0;
   std::cout << "Zibai debug l_push_packet calling hostchannel_push with value " << *((int *) host_buffer) << " \n";
@@ -766,9 +766,9 @@ void acl_write_program_hostpipe(void *user_data, acl_device_op_t *op){
   acl_set_device_op_execution_status(op, CL_RUNNING);
   std::cout << "Zibai debug acl_write_program_hostpipe m_physical_device_id is " << event->cmd.info.host_pipe_info.m_physical_device_id << "\n";
   std::cout << "Zibai debug, acl_write_program_hostpipe writing into using the m_channel_handle " << event->cmd.info.host_pipe_info.m_channel_handle << " \n";
-  std::cout << "Zibai debug, acl_write_program_hostpipe writing into with the value " << *((int *)event->cmd.info.host_pipe_info.ptr) << " \n";
+  std::cout << "Zibai debug, acl_write_program_hostpipe writing into with the value " << *((int *)event->cmd.info.host_pipe_info.write_ptr) << " \n";
   status = l_push_packet(event->cmd.info.host_pipe_info.m_physical_device_id,
-                        event->cmd.info.host_pipe_info.m_channel_handle, event->cmd.info.host_pipe_info.ptr,
+                        event->cmd.info.host_pipe_info.m_channel_handle, event->cmd.info.host_pipe_info.write_ptr,
                         event->cmd.info.host_pipe_info.size);
   std::cout << "Zibai debug, acl_write_program_hostpipe l_push_packet returned status is " << status << "\n";
   if (!blocking){
@@ -783,7 +783,7 @@ void acl_write_program_hostpipe(void *user_data, acl_device_op_t *op){
     // If it's a blocking write, this function won't return until the write success.
     while (status != CL_SUCCESS){
       status = l_push_packet(event->cmd.info.host_pipe_info.m_physical_device_id,
-                      event->cmd.info.host_pipe_info.m_channel_handle, event->cmd.info.host_pipe_info.ptr,
+                      event->cmd.info.host_pipe_info.m_channel_handle, event->cmd.info.host_pipe_info.write_ptr,
                       event->cmd.info.host_pipe_info.size);
       std::cout << "Zibai debug, acl_write_program_hostpipe stuck in the for loop? \n";
     }
@@ -1023,7 +1023,7 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueWriteHostPipeINTEL(
                                     cl_program program,
                                     const char* pipe_symbol,
                                     cl_bool blocking_write,
-                                    void* ptr,
+                                    const void* ptr,
                                     size_t size,
                                     cl_uint num_events_in_wait_list,
                                     const cl_event* event_wait_list,
@@ -1069,7 +1069,7 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueWriteHostPipeINTEL(
     local_event->cmd.info.host_pipe_info.m_physical_device_id = host_pipe_info.m_physical_device_id;
     local_event->cmd.info.host_pipe_info.m_channel_handle = host_pipe_info.m_channel_handle;
     local_event->cmd.info.host_pipe_info.size = size;
-    local_event->cmd.info.host_pipe_info.ptr = ptr;
+    local_event->cmd.info.host_pipe_info.write_ptr = ptr;
     local_event->cmd.info.host_pipe_info.blocking = blocking_write;
     local_event->cmd.info.host_pipe_info.logical_name = pipe_symbol;
 

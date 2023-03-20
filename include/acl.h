@@ -538,7 +538,8 @@ struct acl_hostpipe_mapping {
   std::string logical_name;
   std::string physical_name;
   bool implement_in_csr;
-  uintptr_t csr_address;
+  // uintptr_t csr_address; // todo fix this
+  std::string csr_address; // fix this
   bool is_read;
   bool is_write;
   unsigned pipe_width;
