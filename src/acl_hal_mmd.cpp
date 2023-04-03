@@ -2171,10 +2171,6 @@ int acl_hal_mmd_hostchannel_create(unsigned int physical_device_id,
   pcie_dev_handle = device_info[physical_device_id].handle;
   assert(device_info[physical_device_id]
              .mmd_dispatch->aocl_mmd_hostchannel_create);
-
-
-
-
   return device_info[physical_device_id]
       .mmd_dispatch->aocl_mmd_hostchannel_create(
           pcie_dev_handle, channel_name, num_packets * packet_size, direction);
@@ -2210,20 +2206,14 @@ size_t acl_hal_mmd_hostchannel_pull(unsigned int physical_device_id,
                         pcie_dev_handle, channel_handle, &buffer_size, status);
 
   if ((NULL == pull_buffer) || (0 == buffer_size)) {
-
     return 0;
   }
-
-
 
   // How much can be pulled to user buffer
   buffer_size = (read_size > buffer_size) ? buffer_size : read_size;
 
   // Copy the data into the user buffer
   safe_memcpy(host_buffer, pull_buffer, buffer_size, buffer_size, buffer_size);
-
-
-
 
   // acknowledge host channel MMD that copy of data from its buffer is done
   assert(device_info[physical_device_id]
@@ -2280,7 +2270,6 @@ size_t acl_hal_mmd_hostchannel_push(unsigned int physical_device_id,
   // amount of space get buffer said was available are not equal, something went
   // wrong
   assert(pushed == buffer_size);
-
   return pushed;
 }
 
@@ -2291,7 +2280,6 @@ void *acl_hal_mmd_hostchannel_get_buffer(unsigned int physical_device_id,
 
   pcie_dev_handle = device_info[physical_device_id].handle;
   *status = 0;
-
 
   // get the pointer to host channel mmd buffer
   assert(device_info[physical_device_id]
