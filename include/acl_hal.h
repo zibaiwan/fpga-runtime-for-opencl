@@ -247,10 +247,10 @@ typedef struct {
                                            unsigned int &finish_counter);
 
   size_t (*read_csr)(unsigned int physical_device_id, uintptr_t offset,
-                                           void *ptr, size_t size);
+                     void *ptr, size_t size);
 
   size_t (*write_csr)(unsigned int physical_device_id, uintptr_t offset,
-                                           const void *ptr, size_t size);
+                      const void *ptr, size_t size);
 } acl_hal_t;
 
 /// Linked list of MMD library names to load.

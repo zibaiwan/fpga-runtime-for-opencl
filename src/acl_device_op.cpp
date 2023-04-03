@@ -15,6 +15,7 @@
 #include <acl_event.h>
 #include <acl_globals.h>
 #include <acl_hal.h>
+#include <acl_hostch.h>
 #include <acl_kernel.h>
 #include <acl_mem.h>
 #include <acl_printf.h>
@@ -25,7 +26,6 @@
 #include <acl_types.h>
 #include <acl_usm.h>
 #include <acl_util.h>
-#include <acl_hostch.h>
 
 #ifdef __GNUC__
 #pragma GCC visibility push(protected)
@@ -126,14 +126,11 @@ static unsigned char conflict_matrix_half_duplex
         {0, 0, 0, 0, 0, 1, 0, 0}
         // PROGRAM vs.
         ,
-        {1, 1, 1, 1, 1, 1, 1, 1}
-        ,
+        {1, 1, 1, 1, 1, 1, 1, 1},
         // HOSTPIPE_READ vs.
-        {0, 1, 1, 1, 0, 1, 0, 0}
-        ,
+        {0, 1, 1, 1, 0, 1, 0, 0},
         // HOSTPIPE_WRITE vs.
-        {0, 1, 1, 1, 0, 1, 0, 0}
-        };
+        {0, 1, 1, 1, 0, 1, 0, 0}};
 
 static unsigned char conflict_matrix_full_duplex
     [ACL_NUM_CONFLICT_TYPES][ACL_NUM_CONFLICT_TYPES] = {
@@ -156,14 +153,11 @@ static unsigned char conflict_matrix_full_duplex
         {0, 0, 0, 0, 0, 1, 0, 0}
         // PROGRAM vs.
         ,
-        {1, 1, 1, 1, 1, 1, 1, 1}
-        ,
+        {1, 1, 1, 1, 1, 1, 1, 1},
         // HOSTPIPE_READ vs.
-        {0, 1, 1, 1, 0, 1, 0, 0}
-        ,
+        {0, 1, 1, 1, 0, 1, 0, 0},
         // HOSTPIPE_WRITE vs.
-        {0, 1, 1, 1, 0, 1, 0, 0}
-        };
+        {0, 1, 1, 1, 0, 1, 0, 0}};
 
 static const char *l_type_name(int op_type) {
   switch (op_type) {

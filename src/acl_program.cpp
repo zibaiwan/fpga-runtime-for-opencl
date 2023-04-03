@@ -107,7 +107,10 @@ static void l_try_to_eagerly_program_device(cl_program program);
 static void
 l_device_memory_definition_copy(acl_device_def_autodiscovery_t *dest_dev,
                                 acl_device_def_autodiscovery_t *src_dev);
-static cl_int l_register_hostpipes_to_program(acl_device_program_info_t *dev_prog, unsigned int physical_device_id, cl_context context);
+static cl_int
+l_register_hostpipes_to_program(acl_device_program_info_t *dev_prog,
+                                unsigned int physical_device_id,
+                                cl_context context);
 //////////////////////////////
 // OpenCL API
 
@@ -1309,37 +1312,45 @@ l_create_dev_prog(cl_program program, cl_device_id device, size_t binary_len,
   return result;
 }
 
-// Loop through auto-discovery string and store program scope hostpipe information in the device program info
-static cl_int l_register_hostpipes_to_program(acl_device_program_info_t *dev_prog, unsigned int physical_device_id, cl_context context) {
+// Loop through auto-discovery string and store program scope hostpipe
+// information in the device program info
+static cl_int
+l_register_hostpipes_to_program(acl_device_program_info_t *dev_prog,
+                                unsigned int physical_device_id,
+                                cl_context context) {
 
   host_pipe_t host_pipe_info;
 
-  for (const auto &hostpipe : dev_prog->device_binary.get_devdef().autodiscovery_def.hostpipe_mappings) {
+  for (const auto &hostpipe : dev_prog->device_binary.get_devdef()
+                                  .autodiscovery_def.hostpipe_mappings) {
     // Skip if the hostpipe is already registered in the program
     auto search = dev_prog->program_hostpipe_map.find(hostpipe.logical_name);
-    if (search != dev_prog->program_hostpipe_map.end()){
-       continue;
+    if (search != dev_prog->program_hostpipe_map.end()) {
+      continue;
     }
     host_pipe_t host_pipe_info;
     host_pipe_info.m_physical_device_id = physical_device_id;
-    if (hostpipe.is_read && hostpipe.is_write){
-      ERR_RET(CL_INVALID_OPERATION, context, "Hostpipes don't allow both read and write operations from the host.");
+    if (hostpipe.is_read && hostpipe.is_write) {
+      ERR_RET(CL_INVALID_OPERATION, context,
+              "Hostpipes don't allow both read and write operations from the "
+              "host.");
     }
-    if (!hostpipe.is_read && !hostpipe.is_write){
-      ERR_RET(CL_INVALID_OPERATION, context, "The hostpipe direction is not set.");
+    if (!hostpipe.is_read && !hostpipe.is_write) {
+      ERR_RET(CL_INVALID_OPERATION, context,
+              "The hostpipe direction is not set.");
     }
 
-    if (hostpipe.implement_in_csr){
+    if (hostpipe.implement_in_csr) {
       // CSR hostpipe read and write from the given CSR address directly
       host_pipe_info.implement_in_csr = true;
       host_pipe_info.csr_address = hostpipe.csr_address;
-    }else{
+    } else {
       host_pipe_info.implement_in_csr = false;
-      host_pipe_info.m_channel_handle =
-        acl_get_hal()->hostchannel_create(physical_device_id,
-            (char *)hostpipe.physical_name.c_str(),
-            hostpipe.pipe_depth, 
-            hostpipe.pipe_width, hostpipe.is_read); // If it's a read pipe, pass 1 to the hostchannel_create, which is HOST_TO_DEVICE
+      host_pipe_info.m_channel_handle = acl_get_hal()->hostchannel_create(
+          physical_device_id, (char *)hostpipe.physical_name.c_str(),
+          hostpipe.pipe_depth, hostpipe.pipe_width,
+          hostpipe.is_read); // If it's a read pipe, pass 1 to the
+                             // hostchannel_create, which is HOST_TO_DEVICE
       if (host_pipe_info.m_channel_handle <= 0) {
         return CL_INVALID_VALUE;
       }

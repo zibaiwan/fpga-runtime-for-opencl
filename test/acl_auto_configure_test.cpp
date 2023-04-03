@@ -1489,8 +1489,10 @@ TEST(auto_configure, hostpipe_mappings) {
       "23 66 " RANDOM_HASH
       " pac_a10 0 1 13 DDR 2 2 24 1 2 0 4294967296 4294967296 8589934592 0 - 0 "
       "0 0 0 0 0 1 5 8 pipe_logical_name1 pipe_physical_name1 1 12345 0 1 4 10 "
-      "pipe_logical_name2 pipe_physical_name2 0 12323 1 0 8 20 pipe_logical_name3 "
-      "pipe_physical_name1 1 12313 0 1 4 10 pipe_logical_name5 pipe_physical_name1 0 "
+      "pipe_logical_name2 pipe_physical_name2 0 12323 1 0 8 20 "
+      "pipe_logical_name3 "
+      "pipe_physical_name1 1 12313 0 1 4 10 pipe_logical_name5 "
+      "pipe_physical_name1 0 "
       "12316 1 0 8 20 pipe_logical_name4 pipe_physical_name3 0 12342 0 1 4 10 "
       "3 90 "
       "_ZTS3CRCILi0EE 512 256 1 0 0 1 0 1 0 9 6 0 0 8 1 0 0 6 2 1 8 1024 0 3 6 "

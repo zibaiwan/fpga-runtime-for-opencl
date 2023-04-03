@@ -285,7 +285,6 @@ typedef void(CL_CALLBACK *acl_event_notify_fn_t)(
 typedef void(CL_CALLBACK *acl_mem_destructor_notify_fn_t)(cl_mem memobj,
                                                           void *user_data);
 
-
 enum host_op_type { MAP, PACKET };
 
 typedef struct host_op_struct {
@@ -322,15 +321,17 @@ typedef struct host_pipe_struct {
   // Pipe specific lock. Obtained every time we do an operation on the pipe
   acl_mutex_t m_lock;
 
-  // The following are the new entries introduced by the program scoped hostpipes
+  // The following are the new entries introduced by the program scoped
+  // hostpipes
 
   // Whether this program hostpipe is implemented in the CSR
   bool implement_in_csr;
 
-  // The CSR address of this hostpipe. Compiler passes a csr_address = '-' for non-CSR program hostpipe
+  // The CSR address of this hostpipe. Compiler passes a csr_address = '-' for
+  // non-CSR program hostpipe
   std::string csr_address;
 
-} host_pipe_t;                                                          
+} host_pipe_t;
 
 // The device-specific information about a program.
 //
@@ -602,12 +603,14 @@ typedef struct {
     } ndrange_kernel;
 
     struct {
-        // Used for program scoped hostpipe
-        size_t size;
-        void* ptr;
-        const void* write_ptr;
-        bool blocking;
-        const char* logical_name; //Use char* instead string here due to a compilation error from acl_command_info_t constructor malloc related
+      // Used for program scoped hostpipe
+      size_t size;
+      void *ptr;
+      const void *write_ptr;
+      bool blocking;
+      const char *logical_name; // Use char* instead string here due to a
+                                // compilation error from acl_command_info_t
+                                // constructor malloc related
     } host_pipe_info;
 
     // Reprogram the device, without an associated kernel enqueue.
@@ -742,7 +745,6 @@ typedef struct acl_mem_destructor_user_callback {
   acl_mem_destructor_notify_fn_t
       mem_destructor_notify_fn; // The callback function, provided by the user.
 } acl_mem_destructor_user_callback;
-
 
 // The bookkeeping required to keep track of a block of allocated memory.
 // The storage for these structs is owned by the acl_platform object.
@@ -1321,12 +1323,10 @@ typedef enum {
   // USM Memcpy that should call HAL's copy API without any extra work.
   // Corresponds to acl_command_info_t.info.ptr_xfer
   ,
-  ACL_DEVICE_OP_USM_MEMCPY
-  ,
+  ACL_DEVICE_OP_USM_MEMCPY,
   // Progrgam based hostpipe read or write
   ACL_DEVICE_OP_HOSTPIPE_READ,
-  ACL_DEVICE_OP_HOSTPIPE_WRITE
-  ,
+  ACL_DEVICE_OP_HOSTPIPE_WRITE,
   ACL_NUM_DEVICE_OP_TYPES
 
 } acl_device_op_type_t;
@@ -1356,7 +1356,8 @@ typedef enum {
   ,
   ACL_CONFLICT_HOSTPIPE_READ // Acts like a hostpipe read from the host channel
   ,
-  ACL_CONFLICT_HOSTPIPE_WRITE // Acts like a hostpipe write from the host channel
+  ACL_CONFLICT_HOSTPIPE_WRITE // Acts like a hostpipe write from the host
+                              // channel
   ,
   ACL_NUM_CONFLICT_TYPES
 } acl_device_op_conflict_type_t;

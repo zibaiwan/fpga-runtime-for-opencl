@@ -161,10 +161,10 @@ void acl_hal_mmd_simulation_streaming_kernel_done(
     unsigned int &finish_counter);
 
 size_t acl_hal_mmd_read_csr(unsigned int physical_device_id, uintptr_t offset,
-                                           void *ptr, size_t size);
+                            void *ptr, size_t size);
 
 size_t acl_hal_mmd_write_csr(unsigned int physical_device_id, uintptr_t offset,
-                                           const void *ptr, size_t size);
+                             const void *ptr, size_t size);
 
 static size_t acl_kernel_if_read(acl_bsp_io *io, dev_addr_t src, char *dest,
                                  size_t size);
@@ -359,8 +359,8 @@ static acl_hal_t acl_hal_mmd = {
     acl_hal_mmd_shared_alloc,                     // shared_alloc
     acl_hal_mmd_simulation_streaming_kernel_start, // simulation_streaming_kernel_start
     acl_hal_mmd_simulation_streaming_kernel_done, // simulation_streaming_kernel_done
-    acl_hal_mmd_read_csr, // read_csr
-    acl_hal_mmd_write_csr, // write_csr
+    acl_hal_mmd_read_csr,                         // read_csr
+    acl_hal_mmd_write_csr,                        // write_csr
 };
 
 // This will contain the device physical id to tell us which device across all
@@ -2231,7 +2231,7 @@ size_t acl_hal_mmd_hostchannel_pull(unsigned int physical_device_id,
 }
 
 size_t acl_hal_mmd_hostchannel_push(unsigned int physical_device_id,
-                                    int channel_handle, const void* host_buffer,
+                                    int channel_handle, const void *host_buffer,
                                     size_t write_size, int *status) {
   size_t buffer_size = 0;
   size_t pushed;
@@ -2861,15 +2861,15 @@ void acl_hal_mmd_simulation_streaming_kernel_done(
 }
 
 size_t acl_hal_mmd_read_csr(unsigned int physical_device_id, uintptr_t offset,
-                                           void *ptr, size_t size) {
+                            void *ptr, size_t size) {
   return device_info[physical_device_id].mmd_dispatch->aocl_mmd_read(
-             device_info[physical_device_id].handle, NULL, size, (void *)ptr,
-             kernel_interface, (size_t)offset);
+      device_info[physical_device_id].handle, NULL, size, (void *)ptr,
+      kernel_interface, (size_t)offset);
 }
 
 size_t acl_hal_mmd_write_csr(unsigned int physical_device_id, uintptr_t offset,
-                                           const void *ptr, size_t size) {
+                             const void *ptr, size_t size) {
   return device_info[physical_device_id].mmd_dispatch->aocl_mmd_write(
-             device_info[physical_device_id].handle, NULL, size, (const void *)ptr,
-             kernel_interface, (size_t)offset);
+      device_info[physical_device_id].handle, NULL, size, (const void *)ptr,
+      kernel_interface, (size_t)offset);
 }

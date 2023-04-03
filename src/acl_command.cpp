@@ -16,6 +16,7 @@
 #include <acl_event.h>
 #include <acl_globals.h>
 #include <acl_hal.h>
+#include <acl_hostch.h>
 #include <acl_kernel.h>
 #include <acl_mem.h>
 #include <acl_program.h>
@@ -24,7 +25,6 @@
 #include <acl_types.h>
 #include <acl_usm.h>
 #include <acl_util.h>
-#include <acl_hostch.h>
 
 #ifdef __GNUC__
 #pragma GCC visibility push(protected)

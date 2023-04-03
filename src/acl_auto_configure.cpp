@@ -640,22 +640,20 @@ static bool read_hostpipe_mappings(
     counters.emplace_back(num_fields_per_mapping);
 
     acl_hostpipe_mapping mapping{};
-    result = read_string_counters(config_str, curr_pos, mapping.logical_name,
-                                  counters) &&
-             read_string_counters(config_str, curr_pos, mapping.physical_name,
-                                  counters) &&
-             read_bool_counters(config_str, curr_pos, mapping.implement_in_csr,
-                                counters) &&
-             read_string_counters(config_str, curr_pos, mapping.csr_address,
-                                  counters) &&
-             read_bool_counters(config_str, curr_pos, mapping.is_read,
-                                counters) &&
-             read_bool_counters(config_str, curr_pos, mapping.is_write,
-                                counters) &&
-             read_uint_counters(config_str, curr_pos, mapping.pipe_width,
-                                counters) &&
-             read_uint_counters(config_str, curr_pos, mapping.pipe_depth,
-                                counters);
+    result =
+        read_string_counters(config_str, curr_pos, mapping.logical_name,
+                             counters) &&
+        read_string_counters(config_str, curr_pos, mapping.physical_name,
+                             counters) &&
+        read_bool_counters(config_str, curr_pos, mapping.implement_in_csr,
+                           counters) &&
+        read_string_counters(config_str, curr_pos, mapping.csr_address,
+                             counters) &&
+        read_bool_counters(config_str, curr_pos, mapping.is_read, counters) &&
+        read_bool_counters(config_str, curr_pos, mapping.is_write, counters) &&
+        read_uint_counters(config_str, curr_pos, mapping.pipe_width,
+                           counters) &&
+        read_uint_counters(config_str, curr_pos, mapping.pipe_depth, counters);
 
     hostpipe_mappings.emplace_back(mapping);
 
@@ -928,7 +926,7 @@ static bool read_accel_defs(const std::string &config_str,
     if (accel[i].printf_format_info.size() > 0) {
       accel[i].fast_launch_depth = 0;
     }
-  
+
     // Get the arguments themselves
     int total_fields_printf = 0;
     if (result) {
@@ -1204,7 +1202,7 @@ bool acl_load_device_def_from_str(const std::string &config_str,
                                 devdef.cra_ring_root_exist, counters);
   }
 
-  //Read program scoped hostpipes mappings
+  // Read program scoped hostpipes mappings
   if (result && counters.back() > 0) {
     result = read_hostpipe_mappings(
         config_str, curr_pos, devdef.hostpipe_mappings, counters, err_str);

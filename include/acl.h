@@ -536,9 +536,10 @@ struct acl_device_global_mem_def_t {
 // Mapping of logical to physical host pipes.
 struct acl_hostpipe_mapping {
   std::string logical_name;
-  std::string physical_name; //chan_id in the board_spec.xml
+  std::string physical_name; // chan_id in the board_spec.xml
   bool implement_in_csr;
-  std::string csr_address; // Store this as string as this value can be '-' for non-CSR pipe.
+  std::string csr_address; // Store this as string as this value can be '-' for
+                           // non-CSR pipe.
   bool is_read;
   bool is_write;
   unsigned pipe_width;
