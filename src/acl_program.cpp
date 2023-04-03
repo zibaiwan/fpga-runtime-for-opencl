@@ -85,7 +85,6 @@
 //             - reference to interface
 //             - argument values
 
-
 ACL_DEFINE_CL_OBJECT_ALLOC_FUNCTIONS(cl_program);
 
 //////////////////////////////
@@ -108,7 +107,7 @@ static void l_try_to_eagerly_program_device(cl_program program);
 static void
 l_device_memory_definition_copy(acl_device_def_autodiscovery_t *dest_dev,
                                 acl_device_def_autodiscovery_t *src_dev);
-static cl_int l_register_hostpipes_to_program(acl_device_program_info_t *dev_prog, const acl_device_def_autodiscovery_t &devdef, unsigned int physical_device_id, cl_context context);
+static cl_int l_register_hostpipes_to_program(acl_device_program_info_t *dev_prog, unsigned int physical_device_id, cl_context context);
 //////////////////////////////
 // OpenCL API
 
@@ -293,8 +292,6 @@ CL_API_ENTRY cl_program CL_API_CALL clCreateProgramWithBinaryIntelFPGA(
   cl_program program = 0;
   std::scoped_lock lock{acl_mutex_wrapper};
 
-
-
   if (!acl_context_is_valid(context))
     BAIL(CL_INVALID_CONTEXT);
 
@@ -337,15 +334,12 @@ CL_API_ENTRY cl_program CL_API_CALL clCreateProgramWithBinaryIntelFPGA(
     // Save the binary in a new acl_device_program_info_t
     program->dev_prog[idev] = l_create_dev_prog(program, device_list[idev],
                                                 lengths[idev], binaries[idev]);
-
     if (program->dev_prog[idev]) {
       if (context->programs_devices || context->uses_dynamic_sysdef) {
         if (!context->split_kernel) {
-
           // Load and validate the ELF package form.
           auto status =
               program->dev_prog[idev]->device_binary.load_binary_pkg(0, 1);
-
           if (status != CL_SUCCESS) {
             l_free_program(program);
             if (binary_status) {
@@ -353,7 +347,6 @@ CL_API_ENTRY cl_program CL_API_CALL clCreateProgramWithBinaryIntelFPGA(
             }
             BAIL_INFO(CL_INVALID_BINARY, context, "Invalid binary");
           }
-
         } else {
           assert(context->uses_dynamic_sysdef);
           // Allow disabling preloading of split binaries if the user requests
@@ -364,14 +357,12 @@ CL_API_ENTRY cl_program CL_API_CALL clCreateProgramWithBinaryIntelFPGA(
           // CL_PROGRAM_NUM_KERNELS and CL_PROGRAM_KERNEL_NAMES in
           // clGetProgramInfo will return inaccurate results unless all kernels
           // in the program are created. Preloading is enabled by default.
-
           const char *preload =
               acl_getenv("CL_PRELOAD_SPLIT_BINARIES_INTELFPGA");
           if (!preload || std::string(preload) != "0") {
             // In split_kernel mode we have to load all aocx files
             // in the specified directory which cumulatively contain all the
             // kernels.
-
             auto result = acl_glob(std::string(context->program_library_root) +
                                    std::string("/kernel_*.aocx"));
             for (const auto &filename : result) {
@@ -386,7 +377,6 @@ CL_API_ENTRY cl_program CL_API_CALL clCreateProgramWithBinaryIntelFPGA(
                   program->dev_prog[idev]->add_split_binary(kernel_name);
               dev_bin.load_content(filename);
               auto status = dev_bin.load_binary_pkg(0, 1);
-
               if (status != CL_SUCCESS) {
                 l_free_program(program);
                 if (binary_status) {
@@ -403,7 +393,6 @@ CL_API_ENTRY cl_program CL_API_CALL clCreateProgramWithBinaryIntelFPGA(
           }
         }
       } else {
-
         assert(!context->split_kernel);
         // Copy memory definition from initial device def to program in
         // CL_CONTEXT_COMPILER_MODE_INTELFPGA mode.
@@ -415,7 +404,6 @@ CL_API_ENTRY cl_program CL_API_CALL clCreateProgramWithBinaryIntelFPGA(
       }
     } else {
       // Release all the memory we've allocated.
-
       l_free_program(program);
       if (binary_status) {
         binary_status[idev] = CL_INVALID_VALUE;
@@ -423,10 +411,9 @@ CL_API_ENTRY cl_program CL_API_CALL clCreateProgramWithBinaryIntelFPGA(
       BAIL_INFO(CL_OUT_OF_HOST_MEMORY, context,
                 "Could not allocate memory to store program binaries");
     }
-    
+
     // Wait to set status until after failures may have occurred for this
     // device.
-
     if (binary_status) {
       binary_status[idev] = CL_SUCCESS;
     }
@@ -442,9 +429,9 @@ CL_API_ENTRY cl_program CL_API_CALL clCreateProgramWithBinaryIntelFPGA(
 
   l_try_to_eagerly_program_device(program);
 
+  // Register the program scoped hostpipe to each dev_prog
   for (idev = 0; idev < num_devices; idev++) {
-    l_register_hostpipes_to_program(program->dev_prog[idev], program->dev_prog[idev]->device_binary.get_devdef().autodiscovery_def, idev, context);
-
+    l_register_hostpipes_to_program(program->dev_prog[idev], idev, context);
   }
 
   return program;
@@ -1322,22 +1309,17 @@ l_create_dev_prog(cl_program program, cl_device_id device, size_t binary_len,
   return result;
 }
 
-static cl_int l_register_hostpipes_to_program(acl_device_program_info_t *dev_prog, const acl_device_def_autodiscovery_t &devdef, unsigned int physical_device_id, cl_context context) {
-
-  //if (program_hostpipe_registered) return CL_SUCCESS;
+// Loop through auto-discovery string and store program scope hostpipe information in the device program info
+static cl_int l_register_hostpipes_to_program(acl_device_program_info_t *dev_prog, unsigned int physical_device_id, cl_context context) {
 
   host_pipe_t host_pipe_info;
 
-  // Loop through all hostpipe mappings
-  // Todo: handle multiple logical pipe mape to same physical pipe scenario?
-
-  for (const auto &hostpipe : devdef.hostpipe_mappings) {
+  for (const auto &hostpipe : dev_prog->device_binary.get_devdef().autodiscovery_def.hostpipe_mappings) {
     // Skip if the hostpipe is already registered in the program
     auto search = dev_prog->program_hostpipe_map.find(hostpipe.logical_name);
     if (search != dev_prog->program_hostpipe_map.end()){
        continue;
     }
-
     host_pipe_t host_pipe_info;
     host_pipe_info.m_physical_device_id = physical_device_id;
     if (hostpipe.is_read && hostpipe.is_write){
@@ -1347,9 +1329,8 @@ static cl_int l_register_hostpipes_to_program(acl_device_program_info_t *dev_pro
       ERR_RET(CL_INVALID_OPERATION, context, "The hostpipe direction is not set.");
     }
 
-
     if (hostpipe.implement_in_csr){
-
+      // CSR hostpipe read and write from the given CSR address directly
       host_pipe_info.implement_in_csr = true;
       host_pipe_info.csr_address = hostpipe.csr_address;
     }else{
@@ -1365,15 +1346,10 @@ static cl_int l_register_hostpipes_to_program(acl_device_program_info_t *dev_pro
     }
     acl_mutex_init(&(host_pipe_info.m_lock), NULL);
     dev_prog->program_hostpipe_map[hostpipe.logical_name] = host_pipe_info;
-
-
   }
 
-  // program_hostpipe_registered = true;
   return CL_SUCCESS;
 }
-
-
 
 static cl_int l_build_program_for_device(cl_program program,
                                          unsigned int dev_idx,
@@ -1391,7 +1367,6 @@ static cl_int l_build_program_for_device(cl_program program,
   if (!program->source_text) {
     // Program was created from binary.
     dev_prog = program->dev_prog[dev_idx];
-
     // User might have provided a bad binary (e.g. random bytes).
     // Need to check that once we can.
     // So we can only do a NULL check, but

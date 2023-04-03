@@ -104,17 +104,12 @@ static int l_is_mem_in_use(acl_device_op_t *op, acl_device_op_queue_t *doq);
 //    just too much bookkeeping, for no benefit.
 //
 //
-// Zibai needs to update this matrix here.
-// Right now marking hostpipe read/write conflict with MEM ops, to be safe, but needs to double later.
-// Double check, can it run with Kernel?
+
 static unsigned char conflict_matrix_half_duplex
     [ACL_NUM_CONFLICT_TYPES][ACL_NUM_CONFLICT_TYPES] = {
 
         //                      NONE, MEM_READ, MEM_WRITE, MEM_RW, KERNEL,
-        //                      PROGRAM, HOSTPIPE_READ, HOSTPIPE_WRITE, ZIBAI TODO DOUBLE CHECK, hostpipe read and write conflicts with each other or not.
-        //                      hostpipe read and write likely not conflict with each other. hostpipe write and write likely conflicts on the same pipe, but
-        //                      ok on the different pipe? Initial verion setting: read&read, write&write conflict for now, smilar to memory transfer.
-        //                      Or use a mutex lock in the hostpipe struct, and allow concurrent op on the hostpipe (think more)
+        //                      PROGRAM, HOSTPIPE_READ, HOSTPIPE_WRITE
         // NONE vs.
         {0, 0, 0, 0, 0, 1, 0, 0}
         // MEM_READ  vs.
@@ -144,7 +139,7 @@ static unsigned char conflict_matrix_full_duplex
     [ACL_NUM_CONFLICT_TYPES][ACL_NUM_CONFLICT_TYPES] = {
 
         //                      NONE, MEM_READ, MEM_WRITE, MEM_RW, KERNEL,
-        //                      PROGRAM, HOSTPIPE_READ, HOSTPIPE_WRITE, ZIBAI TODO DOUBLE CHECK
+        //                      PROGRAM, HOSTPIPE_READ, HOSTPIPE_WRITE
         // NONE vs.
         {0, 0, 0, 0, 0, 1, 0, 0}
         // MEM_READ  vs.
@@ -634,7 +629,6 @@ l_get_devices_affected_for_op(acl_device_op_t *op, unsigned int physical_ids[],
       break;
     case ACL_DEVICE_OP_HOSTPIPE_READ:
     case ACL_DEVICE_OP_HOSTPIPE_WRITE:
-      // Zibai Todo check if anything else is needed to be added here
       if (acl_event_is_valid(event) &&
           acl_command_queue_is_valid(event->command_queue)) {
         physical_ids[0] = event->command_queue->device->def.physical_device_id;
@@ -650,8 +644,7 @@ l_get_devices_affected_for_op(acl_device_op_t *op, unsigned int physical_ids[],
   if (num_devices_affected == 0) {
     // This case is only valid for unit tests
     // Make assumptions on which devices are affected
-    // Zibai to double check whether hostpipe ops need some work here.
-    // Maybe need something similar to the MEM read or write?
+    // Possible TODO to add for Hostpipe read and write
     if (event && event->context && op) {
       if (event->context->num_devices >= 2 &&
           op->info.type != ACL_DEVICE_OP_KERNEL &&
@@ -1009,7 +1002,6 @@ unsigned l_update_device_op_queue_once(acl_device_op_queue_t *doq) {
                       op->info.type == ACL_DEVICE_OP_MEM_TRANSFER_COPY ||
                       op->info.type == ACL_DEVICE_OP_HOSTPIPE_READ ||
                       op->info.type == ACL_DEVICE_OP_HOSTPIPE_WRITE)) {
-            // Zibai to double check whether something else is needed for HOSTPIPE ops
             if (!acl_mem_op_requires_transfer(op->info.event->cmd)) {
               is_conflicting = 0;
             }

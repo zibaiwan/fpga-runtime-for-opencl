@@ -35,13 +35,11 @@ static cl_int l_push_packet(unsigned int physical_device_id, int channel_handle,
       physical_device_id, channel_handle, host_buffer, write_size, &status);
   assert(status == 0);
   if (pushed_data == write_size) {
-
     return CL_SUCCESS;
   } else {
     // The packet is the smallest unit of data you can send over.
     // If it didn't send the packet, it shouldn't have sent over anything
     assert(pushed_data == 0);
-
     return CL_PIPE_FULL;
   }
 }
@@ -80,7 +78,6 @@ static void l_clean_up_pending_pipe_ops(cl_mem pipe) {
           assert(acked_size == 0);
         }
       }
-
       pipe->host_pipe_info->size_buffered -= acked_size;
 
       // Clean up the host pipe operation form the queue
@@ -688,14 +685,11 @@ clUnmapHostPipeIntelFPGA(cl_mem pipe, void *mapped_ptr, size_t size_to_unmap,
   return CL_SUCCESS;
 }
 
-
-
 void acl_read_program_hostpipe(void *user_data, acl_device_op_t *op){
 
     cl_event event = op->info.event;
     cl_int status = 0;
     size_t pulled_data = 0;
-    cl_context context = event->context;
     bool blocking = event->cmd.info.host_pipe_info.blocking;
     acl_assert_locked();
 
@@ -712,9 +706,10 @@ void acl_read_program_hostpipe(void *user_data, acl_device_op_t *op){
     acl_set_device_op_execution_status(op, CL_RUNNING);
 
     if (host_pipe_info.implement_in_csr){
-      // Get address, move to a local function
+      // CSR read, currently only blocking version is implemented
       unsigned long long parsed;
       uintptr_t data_reg, ready_reg, valid_reg;
+      // Convert the CSR address to a pointer
       try {
         parsed = std::stoull(host_pipe_info.csr_address, nullptr);
       } catch (const std::exception &) {
@@ -722,19 +717,19 @@ void acl_read_program_hostpipe(void *user_data, acl_device_op_t *op){
         acl_set_device_op_execution_status(op, -1);
         return;
       }
+
       data_reg = static_cast<uintptr_t>(parsed);
-      ready_reg = static_cast<uintptr_t>(parsed + 8);
-      valid_reg = static_cast<uintptr_t>(parsed + 16);
+      ready_reg = static_cast<uintptr_t>(parsed + 8); // ready reg is data reg shift by 8 byte, move this to the autodiscovery string maybe
+      valid_reg = static_cast<uintptr_t>(parsed + 16); // valid reg is ready reg shift by 8 byte
       unsigned ready = 1;
       unsigned valid_value;
       unsigned * valid_value_pointer = &valid_value;
-      size_t size = sizeof(unsigned int);
 
-      // start the read
+      // start the CSR read
+
       // Checking if the data is valid, blocking
       do {
         acl_get_hal()->read_csr(host_pipe_info.m_physical_device_id, valid_reg, (void *)valid_value_pointer, (size_t)sizeof(uintptr_t));
-        //std::cout << "what's the valid value " << valid_value << "\n";
       }
       while (valid_value != 1);
 
@@ -748,18 +743,14 @@ void acl_read_program_hostpipe(void *user_data, acl_device_op_t *op){
           host_pipe_info.m_channel_handle, event->cmd.info.host_pipe_info.ptr, event->cmd.info.host_pipe_info.size, &status);
 
       if (!blocking){
-        // If it is non-blocking read, we return with the error right away
-
+        // If it is non-blocking read, we return with the success code right away
         if (status != 0 || pulled_data != event->cmd.info.host_pipe_info.size) {
-
             acl_mutex_unlock(&(host_pipe_info.m_lock));
-            // acl_context_callback(context, "TODO BETTER ERROR, Empty pipe!"); probably don't need this
             acl_set_device_op_execution_status(op, -1);
             return;
         }
       } else{
         // If it is a blocking read, this call won't return until the kernel writes the data into the pipe.
-        // TODO: Check whether status != 0 needed below
         while (status != 0 || pulled_data != event->cmd.info.host_pipe_info.size){
           pulled_data = acl_get_hal()->hostchannel_pull(
           host_pipe_info.m_physical_device_id,
@@ -773,9 +764,6 @@ void acl_read_program_hostpipe(void *user_data, acl_device_op_t *op){
 }
 
 void acl_write_program_hostpipe(void *user_data, acl_device_op_t *op){
-
-  // TODO LOCKING  mutext, can use event->command_queue->device->device_prog->hostpipe_mapping->logical name to find the hostmap, 
-  // which means, event needs to add logical name in the event->cmd.info.host_pipe_info
 
   cl_int status;
   cl_event event = op->info.event;
@@ -796,36 +784,40 @@ void acl_write_program_hostpipe(void *user_data, acl_device_op_t *op){
   acl_set_device_op_execution_status(op, CL_RUNNING);
 
   if (host_pipe_info.implement_in_csr){
-
-      // Get address, move to a local function
+      // Get CSR address
       unsigned long long parsed;
-      uintptr_t data_reg, ready_reg, valid_reg;
+      uintptr_t data_reg, valid_reg;
       size_t pushed_data;
       try {
-        parsed = std::stoull(host_pipe_info.csr_address, nullptr); // TODO What is the base here
+        parsed = std::stoull(host_pipe_info.csr_address, nullptr);
       } catch (const std::exception &) {
-
         acl_set_device_op_execution_status(op, -1);
         return;
       }
       data_reg = static_cast<uintptr_t>(parsed);
-      valid_reg = static_cast<uintptr_t>(parsed + 8);
+      valid_reg = static_cast<uintptr_t>(parsed + 8); // valid reg is data reg shift by 8 byte, move this to the autodiscovery string maybe
       unsigned int valid = 1;
       // start the write
       pushed_data = acl_get_hal()->write_csr(host_pipe_info.m_physical_device_id, data_reg, event->cmd.info.host_pipe_info.write_ptr, event->cmd.info.host_pipe_info.size);
+      if (pushed_data != event->cmd.info.host_pipe_info.size) {
+        acl_mutex_unlock(&(host_pipe_info.m_lock));
+        acl_set_device_op_execution_status(op, -1);
+        return;
+      }
       // Tell CSR it's valid
       acl_get_hal()->write_csr(host_pipe_info.m_physical_device_id, valid_reg, (void *)&valid, (size_t)sizeof(uintptr_t));
   } else {
+      // Regular hostpipe
+      // Attempt to write once
       status = l_push_packet(host_pipe_info.m_physical_device_id,
                             host_pipe_info.m_channel_handle, event->cmd.info.host_pipe_info.write_ptr,
                             event->cmd.info.host_pipe_info.size);
-
       if (!blocking){
-        // If it is non-blocking write, we return with the error right away
+        // If it is non-blocking write, we return with the success/failure code right away
         if (status != CL_SUCCESS) {
           acl_mutex_unlock(&(host_pipe_info.m_lock));
-          // acl_context_callback(context, "TODO BETTER ERROR, PIPE FULL"); probably not need this.
           acl_set_device_op_execution_status(op, -1);
+          return;
         }
       }
       else{
@@ -834,7 +826,6 @@ void acl_write_program_hostpipe(void *user_data, acl_device_op_t *op){
           status = l_push_packet(host_pipe_info.m_physical_device_id,
                           host_pipe_info.m_channel_handle, event->cmd.info.host_pipe_info.write_ptr,
                           event->cmd.info.host_pipe_info.size);
-
         }
       }
   }
@@ -884,12 +875,11 @@ cl_int acl_submit_read_program_hostpipe_device_op(cl_event event){
 
 // Submit an op to the device op queue to write hostpipe.
 // Return 1 if we made forward progress, 0 otherwise.
-// TODO: maybe can combine this function to the acl_submit_read_program_hostpipe_device_op
 cl_int acl_submit_write_program_hostpipe_device_op(cl_event event){
     int result = 0;
     acl_assert_locked();
 
-    // No user-level scheduling blocks this hostpipe read
+    // No user-level scheduling blocks this hostpipe write op
     // So submit it to the device op queue.
     // But only if it isn't already enqueued there.
     if (!acl_event_is_valid(event)) {
@@ -907,7 +897,7 @@ cl_int acl_submit_write_program_hostpipe_device_op(cl_event event){
     // to free up old operation slots.
     acl_forget_proposed_device_ops(doq);
 
-    last_op = acl_propose_device_op(doq, ACL_DEVICE_OP_HOSTPIPE_WRITE, event); // TODO Change this to the Write op
+    last_op = acl_propose_device_op(doq, ACL_DEVICE_OP_HOSTPIPE_WRITE, event);
 
     if (last_op) {
       // We managed to enqueue everything.
@@ -921,35 +911,6 @@ cl_int acl_submit_write_program_hostpipe_device_op(cl_event event){
     }
     return result;
 }
-
-
-
-
-// clEnqueueReadHostPipeINTEL and clEnqueueWriteHostPipeINTEL return CL_SUCCESS if the command is queued successfully. Otherwise, they return one of the following errors:
-
-// CL_INVALID_COMMAND_QUEUE if command_queue is not a valid host command-queue.
-
-// CL_INVALID_CONTEXT if the context associated with command_queue and program are not the same or if the context associated with command_queue and events in event_wait_list are not the same.
-
-// CL_INVALID_PROGRAM if program is not a valid program object.
-
-// CL_INVALID_PROGRAM_EXECUTABLE if there is no successfully built program executable available for device associated with command_queue.
-
-// CL_INVALID_VALUE if either pipe_symbol or ptr are NULL, or no such symbol is found on the device.
-
-// CL_INVALID_SIZE if size doesn’t equal the size of one data struct defined in the pipe.
-// Use hsotppipe.data_width to check.
-// CL_INVALID_EVENT_WAIT_LIST if event_wait_list is NULL and num_events_in_wait_list > 0, or event_wait_list is not NULL and num_events_in_wait_list is 0, or if event objects in event_wait_list are not valid events.
-
-// CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST if the read and write operations are blocking and the execution status of any of the events in event_wait_list is a negative integer value.
-
-// CL_INVALID_OPERATION if clEnqueueReadHostPipeINTEL is called for a global variable that is not a host pipe that can be read by the host.
-
-// CL_INVALID_OPERATION if clEnqueueWriteHostPipeINTEL is called for a global variable that is not a host pipe that can be written by the host.
-
-// CL_OUT_OF_RESOURCES if there is a failure to allocate resources required by the OpenCL implementation on the device.
-
-// CL_OUT_OF_HOST_MEMORY if there is a failure to allocate resources required by the OpenCL implementation on the host.
 
 ACL_EXPORT
 CL_API_ENTRY cl_int CL_API_CALL clEnqueueReadHostPipeINTEL(
@@ -966,14 +927,11 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueReadHostPipeINTEL(
 
     cl_int status = 0;
 
-    // Error checking
-
     // Get context from program, command_queue and event
     cl_context context = program->context;
     cl_device_id device = command_queue->device;
 
     std::scoped_lock lock{acl_mutex_wrapper};
-
 
     if (ptr == NULL) {
       ERR_RET(CL_INVALID_VALUE, context, "Invalid pointer was provided to host data");
@@ -982,34 +940,6 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueReadHostPipeINTEL(
     if (pipe_symbol == NULL) {
       ERR_RET(CL_INVALID_VALUE, context, "Invalid Pipe Symbol");
     }
-    // TODO, care this scenario?
-    // Are there any operations queued up on this pipe? Is there any data still
-    // available to be read? If yes return that data. Else return 0
-    //safe_memcpy(ptr, host_op.m_mmd_buffer, host_op.m_op_size, size, size);
-
-    // No ops queued up on this pipe
-
-    // pulled_data = acl_get_hal()->hostchannel_pull(
-    //   pipe->host_pipe_info->m_physical_device_id,
-    //   pipe->host_pipe_info->m_channel_handle, ptr,
-    //   size, &status);
-    //   assert(status == 0);
-
-    // m_physical_device_id and m_channel_handle are set by acl_bind_pipe_to_channel
-
-    // pipe_symbol is seems to be the logical pipe name? Need to use it to get the physical pipe name from autodisovery string I think.
-
-    // How to use read_hostpipe_infos (existing function, probably doesn't care since it's not same program scopped one) and read_hostpipe_mappings (new function)?
-
-    // All hostpipe mappings are now saved to devdef.hostpipe_mappings. Probably need to go through them to find the physical name?
-
-    // What do I do once I find the physical name? It's a string.
-    // Probably need to look at this mmd get buffer function (aocl_mmd_hostchannel_get_buffer, it takes a int handle , a int channel to read from the mmd)
-
-    // Question, should I just try to figure out how to pass the physical name into the aocl_mmd_hostchannel_get_buffer, or it's completely wrong??
-    // Review Joe, Rob, Peter meeting again? along with other information in the bc.xml?
-
-    // Need to find that  pipe_symbol on the device
 
     acl_device_program_info_t *dev_prog = device->loaded_bin->get_dev_prog();
 
@@ -1040,7 +970,6 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueReadHostPipeINTEL(
 
     acl_idle_update(command_queue->context); // If nothing's blocking, then complete right away
 
-
     if (blocking_read) {
       status = clWaitForEvents(1, &local_event);
     }
@@ -1056,11 +985,6 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueReadHostPipeINTEL(
       return CL_SUCCESS;
 
 }
-
-//TODO
-
-//so I don't think we'll get a FE error if we read and write to the same pipe from the host. 
-// How difficult will it be to add a runtime error if this happens?
 
 ACL_EXPORT
 CL_API_ENTRY cl_int CL_API_CALL clEnqueueWriteHostPipeINTEL(
@@ -1080,8 +1004,7 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueWriteHostPipeINTEL(
     cl_device_id device = command_queue->device;
 
     std::scoped_lock lock{acl_mutex_wrapper};
-
-                      
+                
     if (ptr == NULL) {
       ERR_RET(CL_INVALID_VALUE, context, "Invalid pointer was provided to host data");
     }
@@ -1101,8 +1024,7 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueWriteHostPipeINTEL(
 
     cl_event local_event = 0; // used for blocking
 
-    // Create an event/command to actually move the data at the appropriate
-    // time.
+    // Create an event/command to actually move the data at the appropriate time.
     status = acl_create_event(command_queue, num_events_in_wait_list, event_wait_list, CL_COMMAND_WRITE_HOST_PIPE_INTEL, &local_event);
 
     if (status != CL_SUCCESS)
@@ -1120,7 +1042,6 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueWriteHostPipeINTEL(
       status = clWaitForEvents(1, &local_event);
     }
 
-
     if (event) {
       *event = local_event;
     } else {
@@ -1131,7 +1052,6 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueWriteHostPipeINTEL(
 
     return CL_SUCCESS;
 }
-
 
 #ifdef __GNUC__
 #pragma GCC visibility pop
