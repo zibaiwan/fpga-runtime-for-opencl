@@ -322,7 +322,12 @@ typedef struct host_pipe_struct {
   // Pipe specific lock. Obtained every time we do an operation on the pipe
   acl_mutex_t m_lock;
 
+  // The following are the new entries introduced by the program scoped hostpipes
+
+  // Whether this program hostpipe is implemented in the CSR
   bool implement_in_csr;
+
+  // The CSR address of this hostpipe. Compiler passes a csr_address = '-' for non-CSR program hostpipe
   std::string csr_address;
 
 } host_pipe_t;                                                          
@@ -392,9 +397,7 @@ public:
   // Return all the names of the kernels in this device program.
   std::set<std::string> get_all_kernel_names() const;
 
-  // Zibai added for program scoped hostpipe
-  // Todo: figure out to store pointer or object (only store pointer if needed)
-  // Todo: use existing host_pipe_t class or a new one.
+  // Map logical hostpipe name to the hostpipe struct
   std::unordered_map<std::string, host_pipe_t> program_hostpipe_map;
 
 private:
@@ -600,8 +603,6 @@ typedef struct {
 
     struct {
         // Used for program scoped hostpipe
-        unsigned int m_physical_device_id;
-        int m_channel_handle;
         size_t size;
         void* ptr;
         const void* write_ptr;
@@ -1353,9 +1354,9 @@ typedef enum {
   ,
   ACL_CONFLICT_REPROGRAM // Acts like a device reprogram
   ,
-  ACL_CONFLICT_HOSTPIPE_READ // Acts like a memory transfer from device to host, hostpipe read
+  ACL_CONFLICT_HOSTPIPE_READ // Acts like a hostpipe read from the host channel
   ,
-  ACL_CONFLICT_HOSTPIPE_WRITE // Acts like a memory transfer from host to device, hostpipe write
+  ACL_CONFLICT_HOSTPIPE_WRITE // Acts like a hostpipe write from the host channel
   ,
   ACL_NUM_CONFLICT_TYPES
 } acl_device_op_conflict_type_t;

@@ -171,7 +171,6 @@ void acl_device_binary_t::reload_content() const {
 cl_int acl_device_binary_t::load_binary_pkg(int validate_compile_options,
                                             int validate_memory_layout) {
   cl_int is_simulator;
-
   auto context = get_dev_prog()->program->context;
 #define FAILREAD_MSG "Could not read parts of the program binary."
   size_t data_len = 0;
@@ -201,12 +200,10 @@ cl_int acl_device_binary_t::load_binary_pkg(int validate_compile_options,
     if (!get_content()) {
       ERR_RET(CL_INVALID_BINARY, context, "Can't read aocx file\n");
     }
-
   }
 
   // Open the package from the memory image.
   // Use 0 for show_mode, i.e. no user messages for anything.
-
   const auto pkg = get_binary_pkg();
   if (!pkg)
     ERR_RET(CL_INVALID_BINARY, context, "Binary file is malformed");
@@ -226,7 +223,6 @@ cl_int acl_device_binary_t::load_binary_pkg(int validate_compile_options,
 
   // Check board.
   // Must always be present, and match dev_prog->device
-
   AND_CHECK(acl_pkg_section_exists(pkg, ".acl.board", &data_len),
             CL_INVALID_BINARY,
             "Malformed program binary: missing .acl.board section");
@@ -290,11 +286,10 @@ cl_int acl_device_binary_t::load_binary_pkg(int validate_compile_options,
   AND_CHECK(pkg_autodiscovery_str.length() > 4, CL_INVALID_BINARY,
             "Invalid .acl.autodiscovery section in program binary");
   // Load the system configuration, so we get the kernel interfaces.
-
   if (status == CL_SUCCESS) {
     std::string err;
     auto ok = acl_load_device_def_from_str(pkg_autodiscovery_str,
-                                           get_devdef().autodiscovery_def, err); // zibai debug, load autodiscovery string failed
+                                           get_devdef().autodiscovery_def, err);
     if (!ok) {
       acl_context_callback(
           context, "Malformed program interface definition found in binary: ");
@@ -425,7 +420,6 @@ cl_int acl_device_binary_t::load_binary_pkg(int validate_compile_options,
   }
 
   // Validate that kernel endianness matches host system
-
   if (status == CL_SUCCESS) {
     if (l_is_host_big_endian() !=
         get_devdef().autodiscovery_def.is_big_endian) {
@@ -445,6 +439,7 @@ cl_int acl_device_binary_t::load_binary_pkg(int validate_compile_options,
       status = CL_INVALID_BINARY; // Fail on the endianness mismatch
     }
   }
+
 #undef AND_CHECK
 
   return status;

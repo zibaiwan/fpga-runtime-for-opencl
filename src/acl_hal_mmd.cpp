@@ -2172,8 +2172,8 @@ int acl_hal_mmd_hostchannel_create(unsigned int physical_device_id,
   assert(device_info[physical_device_id]
              .mmd_dispatch->aocl_mmd_hostchannel_create);
 
-  std::cout << "Zibai debug acl_hal_mmd_hostchannel_create, physical_device_id is " << physical_device_id << " \n";
-  std::cout << "Zibai debug acl_hal_mmd_hostchannel_create, pcie_dev_handle is " << pcie_dev_handle << " \n";
+
+
 
   return device_info[physical_device_id]
       .mmd_dispatch->aocl_mmd_hostchannel_create(
@@ -2208,13 +2208,13 @@ size_t acl_hal_mmd_hostchannel_pull(unsigned int physical_device_id,
   pull_buffer = device_info[physical_device_id]
                     .mmd_dispatch->aocl_mmd_hostchannel_get_buffer(
                         pcie_dev_handle, channel_handle, &buffer_size, status);
-  // std::cout << "zibai debug acl_hal_mmd_hostchannel_pull, after pull buffer, status is " << *status << "\n";
+
   if ((NULL == pull_buffer) || (0 == buffer_size)) {
-    // std::cout << "zibai debug acl_hal_mmd_hostchannel_pull, something went wrong \n";
+
     return 0;
   }
 
-  std::cout << "zibai debug acl_hal_mmd_hostchannel_pull, after pull buffer, what is buffer size" << buffer_size << "\n";
+
 
   // How much can be pulled to user buffer
   buffer_size = (read_size > buffer_size) ? buffer_size : read_size;
@@ -2222,8 +2222,8 @@ size_t acl_hal_mmd_hostchannel_pull(unsigned int physical_device_id,
   // Copy the data into the user buffer
   safe_memcpy(host_buffer, pull_buffer, buffer_size, buffer_size, buffer_size);
 
-  std::cout << "zibai debug acl_hal_mmd_hostchannel_pull, what is host_buffer value " <<*(int *)host_buffer << "\n";
-  std::cout << "zibai debug acl_hal_mmd_hostchannel_pull, what is pull_buffer value " <<*(int *)pull_buffer << "\n";
+
+
 
   // acknowledge host channel MMD that copy of data from its buffer is done
   assert(device_info[physical_device_id]
@@ -2258,21 +2258,7 @@ size_t acl_hal_mmd_hostchannel_push(unsigned int physical_device_id,
                     .mmd_dispatch->aocl_mmd_hostchannel_get_buffer(
                         pcie_dev_handle, channel_handle, &buffer_size, status);
 
-  std::cout << "Zibai debug acl_hal_mmd_hostchannel_push, physical_device_id is " << physical_device_id << " \n";
-  std::cout << "Zibai debug acl_hal_mmd_hostchannel_push, pcie_dev_handle is " << pcie_dev_handle << " \n";
-  std::cout << "Zibai debug acl_hal_mmd_hostchannel_push, channel_handle is " << channel_handle << " \n";
-  std::cout << "Zibai debug acl_hal_mmd_hostchannel_push, status is " << *status << " \n";
-
-  if (push_buffer == NULL){
-    std::cout << "Zibai debug acl_hal_mmd_hostchannel_push, BUFFER IS NONE\n";
-  }
-  if (buffer_size == 0){
-    std::cout << "Zibai debug acl_hal_mmd_hostchannel_push, buffer_size is 0\n";
-  } else{
-    std::cout << "Zibai debug acl_hal_mmd_hostchannel_push, buffer_size is " << buffer_size << "\n";
-  }
   if ((NULL == push_buffer) || (0 == buffer_size)) {
-    std::cout << "ERROR!!! Zibai debug acl_hal_mmd_hostchannel_push with value get buffer is none or buffer size is 0\n"; // here is the problem
     return 0;
   }
 
@@ -2280,7 +2266,7 @@ size_t acl_hal_mmd_hostchannel_push(unsigned int physical_device_id,
   buffer_size = (write_size > buffer_size) ? buffer_size : write_size;
 
   // Copy the data into the push buffer
-  std::cout << "Zibai debug acl_hal_mmd_hostchannel_push with value " << *((int *)host_buffer) << " \n";
+
   safe_memcpy(push_buffer, host_buffer, buffer_size, buffer_size, buffer_size);
 
   // Acknowledge host channel MMD that copy of data to its buffer is done
@@ -2305,8 +2291,8 @@ void *acl_hal_mmd_hostchannel_get_buffer(unsigned int physical_device_id,
 
   pcie_dev_handle = device_info[physical_device_id].handle;
   *status = 0;
-    std::cout << "Zibai debug acl_hal_mmd_hostchannel_get_buffer pcie_dev_handle with value " << pcie_dev_handle << " \n";
-    std::cout << "Zibai debug acl_hal_mmd_hostchannel_get_buffer channel_handle with value " << channel_handle << " \n";  
+
+
   // get the pointer to host channel mmd buffer
   assert(device_info[physical_device_id]
              .mmd_dispatch->aocl_mmd_hostchannel_get_buffer);

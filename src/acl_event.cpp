@@ -650,8 +650,8 @@ static void l_release_command_resources(acl_command_info_t &cmd) {
     cmd.info.memory_migration.num_alloc = 0;
     break;
 
-  case CL_COMMAND_READ_HOST_PIPE_INTEL_FPGA:
-  case CL_COMMAND_WRITE_HOST_PIPE_INTEL_FPGA:
+  case CL_COMMAND_READ_HOST_PIPE_INTEL:
+  case CL_COMMAND_WRITE_HOST_PIPE_INTEL:
     // Do someting to release resource. Handle cleanup.
     break;
 
@@ -791,6 +791,7 @@ cl_int acl_create_event(cl_command_queue command_queue, cl_uint num_events,
   cl_int result;
   cl_context context;
   acl_assert_locked();
+  
   // defensively guarding that the reference of return event passed by the
   // caller should be valid
   assert(new_event_ret &&
@@ -1154,8 +1155,8 @@ void acl_dump_event(cl_event event) {
     NNN(CL_COMMAND_MAP_BUFFER)
     NNN(CL_COMMAND_WAIT_FOR_EVENTS_INTELFPGA)
     NNN(CL_COMMAND_PROGRAM_DEVICE_INTELFPGA)
-    NNN(CL_COMMAND_READ_HOST_PIPE_INTEL_FPGA)
-    NNN(CL_COMMAND_WRITE_HOST_PIPE_INTEL_FPGA)
+    NNN(CL_COMMAND_READ_HOST_PIPE_INTEL)
+    NNN(CL_COMMAND_WRITE_HOST_PIPE_INTEL)
   default:
     break;
   }
