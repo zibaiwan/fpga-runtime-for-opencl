@@ -544,6 +544,7 @@ struct acl_hostpipe_mapping {
   bool is_write;
   unsigned pipe_width;
   unsigned pipe_depth;
+  // std::string pipe_depth; // fix this
 };
 
 // Part of acl_device_def_t where members are populated from the information

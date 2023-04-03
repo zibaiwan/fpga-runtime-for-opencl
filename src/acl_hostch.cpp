@@ -713,27 +713,66 @@ void acl_read_program_hostpipe(void *user_data, acl_device_op_t *op){
     std::cout << "Zibai debug acl_read_program_hostpipe m_physical_device_id is " << event->cmd.info.host_pipe_info.m_physical_device_id << "\n";
     std::cout << "Zibai debug, acl_read_program_hostpipe reading from the m_channel_handle " << event->cmd.info.host_pipe_info.m_channel_handle << " \n";
     std::cout << "Zibai debug, acl_read_program_hostpipe cmd.info.host_pipe_info.size is " << event->cmd.info.host_pipe_info.size << " \n";
-    pulled_data = acl_get_hal()->hostchannel_pull(
-        event->cmd.info.host_pipe_info.m_physical_device_id,
-        event->cmd.info.host_pipe_info.m_channel_handle, event->cmd.info.host_pipe_info.ptr, event->cmd.info.host_pipe_info.size, &status);
-    std::cout << "Zibai debug, acl_read_program_hostpipe, what is the status after first read " << status << " \n";
-    if (!blocking){
-      // If it is non-blocking read, we return with the error right away
-      std::cout << "Zibai debug, acl_read_program_hostpipe, it'a non-blocking read " << status << " \n";
-      if (status != 0 || pulled_data != event->cmd.info.host_pipe_info.size) {
-          std::cout << "Zibai debug, acl_read_program_hostpipe, read fail?\n";
-          acl_mutex_unlock(&(host_pipe_info.m_lock));
-          // acl_context_callback(context, "TODO BETTER ERROR, Empty pipe!"); probably don't need this
-          acl_set_device_op_execution_status(op, -1);
-          return;
+    std::cout << "Zibai debug, acl_read_program_hostpipe cmd.info.host_pipe_info.implincsr is " << host_pipe_info.implement_in_csr << " \n";
+    std::cout << "Zibai debug, acl_read_program_hostpipe cmd.info.host_pipe_info.csr address is " << host_pipe_info.csr_address << " \n";
+    if (host_pipe_info.implement_in_csr){
+      std::cout << "Zibai debug acl_read_program_hostpipe going into csr case \n";
+
+      // Get address, move to a local function
+      unsigned long long parsed;
+      uintptr_t data_reg, ready_reg, valid_reg;
+      try {
+        parsed = std::stoull(host_pipe_info.csr_address, nullptr);
+      } catch (const std::exception &) {
+        std::cout << "Zibai debug acl_read_program_hostpipe couldn't convert csr address \n";
+        acl_set_device_op_execution_status(op, -1);
+        return;
       }
-    } else{
-      // If it is a blocking read, this call won't return until the kernel writes the data into the pipe.
-      // TODO: Check whether status != 0 needed below
-      while (status != 0 || pulled_data != event->cmd.info.host_pipe_info.size){
-        pulled_data = acl_get_hal()->hostchannel_pull(
-        event->cmd.info.host_pipe_info.m_physical_device_id,
-        event->cmd.info.host_pipe_info.m_channel_handle, event->cmd.info.host_pipe_info.ptr, event->cmd.info.host_pipe_info.size, &status);
+      data_reg = static_cast<uintptr_t>(parsed);
+      ready_reg = static_cast<uintptr_t>(parsed + 8);
+      valid_reg = static_cast<uintptr_t>(parsed + 16);
+      unsigned ready = 1;
+      unsigned valid_value;
+      unsigned * valid_value_pointer = &valid_value;
+      size_t size = sizeof(unsigned int);
+      std::cout << "what's the value of parsed " << parsed << "\n";
+      std::cout << "what's the value of data_reg " << data_reg << "\n";
+      std::cout << "what's the value of ready_reg " << ready_reg << "\n";
+      std::cout << "what's the value of valid_reg " << valid_reg << "\n";
+      // start the read
+      // Checking if the data is valid, blocking
+      do {
+        acl_get_hal()->read_csr(event->cmd.info.host_pipe_info.m_physical_device_id, valid_reg, (void *)valid_value_pointer, (size_t)sizeof(uintptr_t));
+        //std::cout << "what's the valid value " << valid_value << "\n";
+      }
+      while (valid_value != 1);
+
+      pulled_data = acl_get_hal()->read_csr(event->cmd.info.host_pipe_info.m_physical_device_id, data_reg, event->cmd.info.host_pipe_info.ptr, event->cmd.info.host_pipe_info.size);
+      // Tell CSR it's ready
+      acl_get_hal()->write_csr(event->cmd.info.host_pipe_info.m_physical_device_id, ready_reg, (void *)&ready, (size_t)sizeof(uintptr_t)); 
+    }else{
+      pulled_data = acl_get_hal()->hostchannel_pull(
+          event->cmd.info.host_pipe_info.m_physical_device_id,
+          event->cmd.info.host_pipe_info.m_channel_handle, event->cmd.info.host_pipe_info.ptr, event->cmd.info.host_pipe_info.size, &status);
+      std::cout << "Zibai debug, acl_read_program_hostpipe, what is the status after first read " << status << " \n";
+      if (!blocking){
+        // If it is non-blocking read, we return with the error right away
+        std::cout << "Zibai debug, acl_read_program_hostpipe, it'a non-blocking read " << status << " \n";
+        if (status != 0 || pulled_data != event->cmd.info.host_pipe_info.size) {
+            std::cout << "Zibai debug, acl_read_program_hostpipe, read fail?\n";
+            acl_mutex_unlock(&(host_pipe_info.m_lock));
+            // acl_context_callback(context, "TODO BETTER ERROR, Empty pipe!"); probably don't need this
+            acl_set_device_op_execution_status(op, -1);
+            return;
+        }
+      } else{
+        // If it is a blocking read, this call won't return until the kernel writes the data into the pipe.
+        // TODO: Check whether status != 0 needed below
+        while (status != 0 || pulled_data != event->cmd.info.host_pipe_info.size){
+          pulled_data = acl_get_hal()->hostchannel_pull(
+          event->cmd.info.host_pipe_info.m_physical_device_id,
+          event->cmd.info.host_pipe_info.m_channel_handle, event->cmd.info.host_pipe_info.ptr, event->cmd.info.host_pipe_info.size, &status);
+        }
       }
     }
     std::cout << "zibai debug acl_read_program_hostpipe host_pipe_info.ptr value is " << *(int *)(event->cmd.info.host_pipe_info.ptr) << " \n";
@@ -767,26 +806,52 @@ void acl_write_program_hostpipe(void *user_data, acl_device_op_t *op){
   std::cout << "Zibai debug acl_write_program_hostpipe m_physical_device_id is " << event->cmd.info.host_pipe_info.m_physical_device_id << "\n";
   std::cout << "Zibai debug, acl_write_program_hostpipe writing into using the m_channel_handle " << event->cmd.info.host_pipe_info.m_channel_handle << " \n";
   std::cout << "Zibai debug, acl_write_program_hostpipe writing into with the value " << *((int *)event->cmd.info.host_pipe_info.write_ptr) << " \n";
-  status = l_push_packet(event->cmd.info.host_pipe_info.m_physical_device_id,
-                        event->cmd.info.host_pipe_info.m_channel_handle, event->cmd.info.host_pipe_info.write_ptr,
-                        event->cmd.info.host_pipe_info.size);
-  std::cout << "Zibai debug, acl_write_program_hostpipe l_push_packet returned status is " << status << "\n";
-  if (!blocking){
-    // If it is non-blocking write, we return with the error right away
-    if (status != CL_SUCCESS) {
-      acl_mutex_unlock(&(host_pipe_info.m_lock));
-      // acl_context_callback(context, "TODO BETTER ERROR, PIPE FULL"); probably not need this.
-      acl_set_device_op_execution_status(op, -1);
-    }
-  }
-  else{
-    // If it's a blocking write, this function won't return until the write success.
-    while (status != CL_SUCCESS){
+  std::cout << "Zibai debug, acl_write_program_hostpipe cmd.info.host_pipe_info.implincsr is " << host_pipe_info.implement_in_csr << " \n";
+  std::cout << "Zibai debug, acl_write_program_hostpipe cmd.info.host_pipe_info.csr address is " << host_pipe_info.csr_address << " \n";
+  if (host_pipe_info.implement_in_csr){
+      std::cout << "Zibai debug acl_write_program_hostpipe going into csr case \n";
+      // Get address, move to a local function
+      unsigned long long parsed;
+      uintptr_t data_reg, ready_reg, valid_reg;
+      size_t pushed_data;
+      try {
+        parsed = std::stoull(host_pipe_info.csr_address, nullptr); // TODO What is the base here
+      } catch (const std::exception &) {
+        std::cout << "Zibai debug acl_write_program_hostpipe couldn't convert csr address \n";
+        acl_set_device_op_execution_status(op, -1);
+        return;
+      }
+      data_reg = static_cast<uintptr_t>(parsed);
+      valid_reg = static_cast<uintptr_t>(parsed + 8);
+      unsigned int valid = 1;
+      // start the write
+      std::cout << "what's the value of data_reg from this write " << data_reg << "\n";
+      pushed_data = acl_get_hal()->write_csr(event->cmd.info.host_pipe_info.m_physical_device_id, data_reg, event->cmd.info.host_pipe_info.write_ptr, event->cmd.info.host_pipe_info.size);
+      // Tell CSR it's valid
+      std::cout << "what's the value of valid_reg from this write" << valid_reg << "\n";
+      acl_get_hal()->write_csr(event->cmd.info.host_pipe_info.m_physical_device_id, valid_reg, (void *)&valid, (size_t)sizeof(uintptr_t));
+  } else {
       status = l_push_packet(event->cmd.info.host_pipe_info.m_physical_device_id,
-                      event->cmd.info.host_pipe_info.m_channel_handle, event->cmd.info.host_pipe_info.write_ptr,
-                      event->cmd.info.host_pipe_info.size);
-      std::cout << "Zibai debug, acl_write_program_hostpipe stuck in the for loop? \n";
-    }
+                            event->cmd.info.host_pipe_info.m_channel_handle, event->cmd.info.host_pipe_info.write_ptr,
+                            event->cmd.info.host_pipe_info.size);
+      std::cout << "Zibai debug, acl_write_program_hostpipe l_push_packet returned status is " << status << "\n";
+      if (!blocking){
+        // If it is non-blocking write, we return with the error right away
+        if (status != CL_SUCCESS) {
+          acl_mutex_unlock(&(host_pipe_info.m_lock));
+          // acl_context_callback(context, "TODO BETTER ERROR, PIPE FULL"); probably not need this.
+          acl_set_device_op_execution_status(op, -1);
+        }
+      }
+      else{
+        // If it's a blocking write, this function won't return until the write success.
+        while (status != CL_SUCCESS){
+          status = l_push_packet(event->cmd.info.host_pipe_info.m_physical_device_id,
+                          event->cmd.info.host_pipe_info.m_channel_handle, event->cmd.info.host_pipe_info.write_ptr,
+                          event->cmd.info.host_pipe_info.size);
+          std::cout << "Zibai debug, acl_write_program_hostpipe stuck in the for loop? \n";
+        }
+      }
   }
   acl_mutex_unlock(&(host_pipe_info.m_lock));
   acl_set_device_op_execution_status(op, CL_COMPLETE);

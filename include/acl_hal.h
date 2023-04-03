@@ -245,6 +245,12 @@ typedef struct {
   void (*simulation_streaming_kernel_done)(unsigned int physical_device_id,
                                            const std::string &signal_name,
                                            unsigned int &finish_counter);
+
+  size_t (*read_csr)(unsigned int physical_device_id, uintptr_t offset,
+                                           void *ptr, size_t size);
+
+  size_t (*write_csr)(unsigned int physical_device_id, uintptr_t offset,
+                                           const void *ptr, size_t size);
 } acl_hal_t;
 
 /// Linked list of MMD library names to load.

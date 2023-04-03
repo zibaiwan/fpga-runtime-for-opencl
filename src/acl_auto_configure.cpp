@@ -178,6 +178,21 @@ static bool read_int_counters(const std::string &str,
   return true;
 }
 
+static bool read_int_counters_2(const std::string &str,
+                               std::string::size_type &pos, int &val,
+                               std::vector<int> &counters) noexcept {
+  std::string result;
+  pos = read_word(str, pos, result);
+  decrement_section_counters(counters);
+  try {
+    val = std::stoi(result);
+  } catch (const std::exception &e) {
+    UNREFERENCED_PARAMETER(e);
+    return false;
+  }
+  return true;
+}
+
 // Reads the next word in str and converts it into a unsigned long long.
 // Returns true if a valid integer was read or false if an error occurred.
 // pos is updated to the position immediately following the parsed word
@@ -658,7 +673,8 @@ static bool read_hostpipe_mappings(
                                 counters) &&
              read_uint_counters(config_str, curr_pos, mapping.pipe_depth,
                                 counters);
-                                  
+                        //  read_string_counters(config_str, curr_pos, mapping.pipe_depth,
+                        //         counters); //fix this
     hostpipe_mappings.emplace_back(mapping);
 
     while (result && counters.back() > 0) {
@@ -1170,20 +1186,20 @@ bool acl_load_device_def_from_str(const std::string &config_str,
     if (devdef.is_big_endian > 1)
       result = false;
   }
-
+  printf("zibai debug -1 result is %d\n", result);
   // Set up device global memories
   if (result) {
     result = read_global_mem_defs(config_str, curr_pos,
                                   devdef.num_global_mem_systems,
                                   devdef.global_mem_defs, counters);
   }
-
+  printf("zibai debug 0 result is %d\n", result);
   // Set up hostpipe information
   if (result) {
     result = read_hostpipe_infos(config_str, curr_pos, devdef.acl_hostpipe_info,
                                  counters);
   }
-
+  printf("zibai debug 0.5 result is %d\n", result);
   /*****************************************************************
     Since the introduction of autodiscovery forwards-compatibility,
     new entries for the 'device' section start here.
@@ -1194,25 +1210,25 @@ bool acl_load_device_def_from_str(const std::string &config_str,
     result = read_uint_counters(config_str, curr_pos, kernel_arg_info_available,
                                 counters);
   }
-
+  printf("zibai debug 1 result is %d\n", result);
   // Read device global information.
   if (result && counters.back() > 0) {
     result = read_device_global_mem_defs(
         config_str, curr_pos, devdef.device_global_mem_defs, counters, err_str);
   }
-
+  printf("zibai debug 2 result is %d\n", result);
   // Check whether csr_ring_root exist in the IP.
   if (result && counters.back() > 0) {
     result = read_bool_counters(config_str, curr_pos,
                                 devdef.cra_ring_root_exist, counters);
   }
-
+  printf("zibai debug 3 result is %d\n", result);
   //Read program scoped hostpipes mappings
   if (result && counters.back() > 0) {
     result = read_hostpipe_mappings(
         config_str, curr_pos, devdef.hostpipe_mappings, counters, err_str);
   }
-
+  printf("zibai debug 4 result is %d\n", result);
   // forward compatibility: bypassing remaining fields at the end of device
   // description section
   while (result && counters.size() > 0 &&
@@ -1223,7 +1239,7 @@ bool acl_load_device_def_from_str(const std::string &config_str,
     check_section_counters(counters);
   }
   counters.pop_back(); // removing total_fields
-
+  printf("zibai debug 5 result is %d\n", result);
   // Set up kernel description
   if (result) {
     result = read_accel_defs(config_str, curr_pos, kernel_arg_info_available,

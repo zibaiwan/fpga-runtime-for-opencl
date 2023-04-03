@@ -1326,7 +1326,7 @@ l_create_dev_prog(cl_program program, cl_device_id device, size_t binary_len,
 
 static cl_int l_register_hostpipes_to_program(acl_device_program_info_t *dev_prog, const acl_device_def_autodiscovery_t &devdef, unsigned int physical_device_id, cl_context context) {
 
-  if (program_hostpipe_registered) return CL_SUCCESS;
+  //if (program_hostpipe_registered) return CL_SUCCESS;
 
   host_pipe_t host_pipe_info;
 
@@ -1350,24 +1350,20 @@ static cl_int l_register_hostpipes_to_program(acl_device_program_info_t *dev_pro
     }
     std::cout << "Zibai debug, physical device id is " << physical_device_id << " hostpipe physical name is " << hostpipe.physical_name << " depth is " << hostpipe.pipe_depth << " width is " << hostpipe.pipe_width << " is read is " << !hostpipe.is_read << " \n";
 
-    host_pipe_info.m_channel_handle =
+    if (hostpipe.implement_in_csr){
+      printf("Zibai debug l_register_hostpipes_to_program is this is the csr pipe 1 \n");
+      host_pipe_info.implement_in_csr = true;
+      host_pipe_info.csr_address = hostpipe.csr_address;
+    }else{
+      host_pipe_info.implement_in_csr = false;
+      host_pipe_info.m_channel_handle =
         acl_get_hal()->hostchannel_create(physical_device_id,
             (char *)hostpipe.physical_name.c_str(),
-            hostpipe.pipe_depth,
+            hostpipe.pipe_depth, 
             hostpipe.pipe_width, hostpipe.is_read); // If it's a read pipe, pass 1 to the hostchannel_create, which is HOST_TO_DEVICE
-    // Zibai testing start
-    // size_t buffer_size;
-    //   int status = 0;
-    //   void *buffer;
-    //   buffer = acl_get_hal()->hostchannel_get_buffer(
-    //       physical_device_id,
-    //       host_pipe_info.m_channel_handle, &buffer_size, &status);
-    // if (buffer == NULL){
-    //    std::cout << "Zibai debug, get_buffer is NULL!!!!\n";
-    // }
-    // Zibai testing end
-    if (host_pipe_info.m_channel_handle <= 0) {
-      return CL_INVALID_VALUE;
+      if (host_pipe_info.m_channel_handle <= 0) {
+        return CL_INVALID_VALUE;
+      }
     }
     acl_mutex_init(&(host_pipe_info.m_lock), NULL);
     dev_prog->program_hostpipe_map[hostpipe.logical_name] = host_pipe_info;
@@ -1375,7 +1371,7 @@ static cl_int l_register_hostpipes_to_program(acl_device_program_info_t *dev_pro
     std::cout << "Zibai debug, hostpipe" << hostpipe.logical_name << "has the m_channel_handle " << host_pipe_info.m_channel_handle << " \n";
   }
   printf("Zibai debug l_register_hostpipes_to_program is called 2 \n");
-  program_hostpipe_registered = true;
+  // program_hostpipe_registered = true;
   return CL_SUCCESS;
 }
 

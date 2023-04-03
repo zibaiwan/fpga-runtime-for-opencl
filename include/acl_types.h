@@ -322,6 +322,9 @@ typedef struct host_pipe_struct {
   // Pipe specific lock. Obtained every time we do an operation on the pipe
   acl_mutex_t m_lock;
 
+  bool implement_in_csr;
+  std::string csr_address;
+
 } host_pipe_t;                                                          
 
 // The device-specific information about a program.
