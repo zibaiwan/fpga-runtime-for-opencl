@@ -4212,6 +4212,221 @@ ACL_EXPORT CL_API_ENTRY cl_int CL_API_CALL clEnqueueMigrateMemObjects(
       num_events_in_wait_list, event_wait_list, event);
 }
 
+// Zibai start
+
+/**
+ * Read <size> bytes of data from device global
+ *
+ * This function extract the device global address with given name, create
+ * kernel from the given program, create temporary device usm pointer to hold
+ * data that will be copied from device global. Launch the copy kernel with
+ * correct pointers set as src and destination, then enqueue a memory copy
+ * operation that depend on copy kernel to copy from temporary device usm
+ * pointer into user provided host pointer. Then register a callback to release
+ * the necessary events, kernels, memories.
+ *
+ * @param command_queue the queue system this copy kernel will belong
+ * @param program contains copy kernel
+ * @param name name of device global, used to look up for device global address
+ * in autodiscovery string
+ * @param blocking_read whether the operation is blocking or not
+ * @param size number of bytes to read / write
+ * @param offset offset from the extracted address of device global
+ * @param ptr pointer that will hold the data copied from device global
+ * @param num_events_in_wait_list number of event that copy kernel depend on
+ * @param event_wait_list events that copy kernel depend on
+ * @param event the info about the execution of copy kernel will be stored in
+ * the event
+ * @return status code, CL_SUCCESS if all operations are successful.
+ */
+ACL_EXPORT
+CL_API_ENTRY cl_int clEnqueueReadGlobalVariableINTEL(
+    cl_command_queue command_queue, cl_program program, const char *name,
+    cl_bool blocking_read, size_t size, size_t offset, void *ptr,
+    cl_uint num_events_in_wait_list, const cl_event *event_wait_list,
+    cl_event *event) {
+  std::cout << "Zibai debug clEnqueueReadGlobalVariableINTEL is being called\n";
+  cl_int status = 0;
+
+  // Get context from program, command_queue and event
+  cl_context context = program->context;
+  cl_device_id device = command_queue->device;
+  unsigned int physical_device_id = device->def.physical_device_id;
+
+  std::scoped_lock lock{acl_mutex_wrapper};
+
+  if (ptr == NULL) {
+    ERR_RET(CL_INVALID_VALUE, context,
+            "Invalid pointer was provided to host data");
+  }
+
+  std::cout << "Zibai debug device global name is " << std::string(name) << "\n";
+
+  if (name == NULL) {
+    ERR_RET(CL_INVALID_VALUE, context, "Invalid Device Global Name");
+  }
+
+  uint64_t device_global_addr;
+
+  std::cout << "Zibai debug clEnqueueReadGlobalVariableINTEL getting dev_global_map start \n";
+  std::unordered_map<std::string, acl_device_global_mem_def_t> dev_global_map =
+      command_queue->device->loaded_bin->get_devdef().autodiscovery_def.device_global_mem_defs;
+  std::cout << "Zibai debug clEnqueueReadGlobalVariableINTEL getting dev_global_map end \n";
+
+  std::unordered_map<std::string, acl_device_global_mem_def_t>::const_iterator
+      dev_global = dev_global_map.find(std::string(name));
+  std::cout << "Zibai debug clEnqueueReadGlobalVariableINTEL getting dev_global end \n";
+
+
+  if (dev_global != dev_global_map.end()) {
+    std::cout << "Zibai debug clEnqueueReadGlobalVariableINTEL 0 \n";
+    device_global_addr = dev_global->second.address;
+    std::cout << "Zibai debug clEnqueueReadGlobalVariableINTEL 1 \n";
+  }else{
+    std::cout << "Zibai debug clEnqueueReadGlobalVariableINTEL Cannot find Device Global address from the name \n";
+    ERR_RET(CL_INVALID_VALUE, context, "Cannot find Device Global address from the name");
+  }
+  std::cout << "Zibai debug clEnqueueReadGlobalVariableINTEL 2 \n";
+  cl_event local_event = 0; // used for blocking
+
+  // Create an event/command to actually move the data at the appropriate
+  // time.
+  status =
+      acl_create_event(command_queue, num_events_in_wait_list, event_wait_list,
+                       CL_COMMAND_READ_GLOBAL_VARIABLE_INTEL, &local_event); // TODO Change to device global read command
+  std::cout << "Zibai debug clEnqueueReadGlobalVariableINTEL 3 \n";
+  if (status != CL_SUCCESS)
+    return status;
+
+  local_event->cmd.info.device_global_info.offset = offset;
+  local_event->cmd.info.device_global_info.read_ptr = ptr;
+  local_event->cmd.info.device_global_info.device_global_addr = device_global_addr;
+  local_event->cmd.info.device_global_info.blocking = blocking_read;
+  local_event->cmd.info.device_global_info.name = name;
+  local_event->cmd.info.device_global_info.size = size;
+  local_event->cmd.info.device_global_info.physical_device_id = physical_device_id;
+  std::cout << "Zibai debug clEnqueueReadGlobalVariableINTEL 4 \n";
+  std::cout << "Zibai debug clEnqueueReadGlobalVariableINTEL 4.01 \n";
+  acl_idle_update(command_queue->context); // If nothing's blocking, then complete right away
+  std::cout << "Zibai debug clEnqueueReadGlobalVariableINTEL 4.1 \n";
+  if (blocking_read) {
+    status = clWaitForEvents(1, &local_event);
+  }
+  std::cout << "Zibai debug clEnqueueReadGlobalVariableINTEL 4.2 \n";
+  if (event) {
+    std::cout << "Zibai debug clEnqueueReadGlobalVariableINTEL 4.3 \n";
+    *event = local_event;
+  } else {
+     std::cout << "Zibai debug clEnqueueReadGlobalVariableINTEL 4.4 \n";
+    // User didn't care, so forget about the event.
+    clReleaseEvent(local_event);
+    acl_idle_update(command_queue->context); // Clean up early
+  }
+  std::cout << "Zibai debug clEnqueueReadGlobalVariableINTEL 5 \n";
+  return CL_SUCCESS;
+}
+
+/**
+ * Write <size> bytes of data from user provided host pointer into device global
+ *
+ * This function extract the device global address with given name, create
+ * kernel from the given program, create temporary device usm pointer to hold
+ * user provided data through usm copy operation. Launch the copy kernel with
+ * correct pointers set as src and destination. Then register a callback to
+ * release the necessary events, kernels, memories.
+ *
+ * @param command_queue the queue system this copy kernel will belong
+ * @param program contains copy kernel
+ * @param name name of device global, used to look up for device global address
+ * in autodiscovery string
+ * @param blocking_write whether the operation is blocking or not
+ * @param size number of bytes to read / write
+ * @param offset offset from the extracted address of device global
+ * @param ptr pointer that will hold the data copied from device global
+ * @param num_events_in_wait_list number of event that copy kernel depend on
+ * @param event_wait_list events that copy kernel depend on
+ * @param event the info about the execution of copy kernel will be stored in
+ * the event
+ * @return status code, CL_SUCCESS if all operations are successful.
+ */
+ACL_EXPORT
+CL_API_ENTRY cl_int clEnqueueWriteGlobalVariableINTEL(
+    cl_command_queue command_queue, cl_program program, const char *name,
+    cl_bool blocking_write, size_t size, size_t offset, const void *ptr,
+    cl_uint num_events_in_wait_list, const cl_event *event_wait_list,
+    cl_event *event) {
+  std::cout << "Zibai debug clEnqueueWriteGlobalVariableINTEL is being called\n";
+  cl_int status = 0;
+  // Get context from program, command_queue and event
+  cl_context context = program->context;
+  cl_device_id device = command_queue->device;
+  unsigned int physical_device_id = device->def.physical_device_id;
+
+  std::scoped_lock lock{acl_mutex_wrapper};
+
+  if (ptr == NULL) {
+    ERR_RET(CL_INVALID_VALUE, context,
+            "Invalid pointer was provided to host data");
+  }
+
+  if (name == NULL) {
+    ERR_RET(CL_INVALID_VALUE, context, "Invalid Device Global Name");
+  }
+
+  uint64_t device_global_addr;
+
+  std::unordered_map<std::string, acl_device_global_mem_def_t> dev_global_map =
+      command_queue->device->loaded_bin->get_devdef().autodiscovery_def.device_global_mem_defs;
+
+  std::unordered_map<std::string, acl_device_global_mem_def_t>::const_iterator
+      dev_global = dev_global_map.find(std::string(name));
+
+  if (dev_global != dev_global_map.end()) {
+    device_global_addr = dev_global->second.address;
+  }else{
+    ERR_RET(CL_INVALID_VALUE, context, "Cannot find Device Global address from the name");
+  }
+
+  cl_event local_event = 0; // used for blocking
+
+  // Create an event/command to actually move the data at the appropriate
+  // time.
+  status =
+      acl_create_event(command_queue, num_events_in_wait_list, event_wait_list,
+                       CL_COMMAND_WRITE_GLOBAL_VARIABLE_INTEL, &local_event); // TODO Change to device global read command
+
+  if (status != CL_SUCCESS)
+    return status;
+
+  local_event->cmd.info.device_global_info.offset = offset;
+  local_event->cmd.info.device_global_info.write_ptr = ptr;
+  local_event->cmd.info.device_global_info.device_global_addr = device_global_addr;
+  local_event->cmd.info.device_global_info.blocking = blocking_write;
+  local_event->cmd.info.device_global_info.name = name;
+  local_event->cmd.info.device_global_info.size = size;
+  local_event->cmd.info.device_global_info.physical_device_id = physical_device_id;
+
+  acl_idle_update(
+      command_queue
+          ->context); // If nothing's blocking, then complete right away
+
+  if (blocking_write) {
+    status = clWaitForEvents(1, &local_event);
+  }
+
+  if (event) {
+    *event = local_event;
+  } else {
+    // User didn't care, so forget about the event.
+    clReleaseEvent(local_event);
+    acl_idle_update(command_queue->context); // Clean up early
+  }
+
+  return CL_SUCCESS;
+}
+
+/// Zibai End
+
 //////////////////////////////
 // Internals
 
@@ -7525,6 +7740,145 @@ void *acl_get_physical_address(cl_mem mem, cl_device_id device) {
   assert(!mem->writable_copy_on_host && "Writable copy is not on device");
   return l_get_address_of_writable_copy(mem, device->def.physical_device_id,
                                         NULL, CL_FALSE);
+}
+
+// Submit an op to the device op queue to read device global.
+// Return 1 if we made forward progress, 0 otherwise.
+cl_int acl_submit_read_device_global_device_op(cl_event event){
+    std::cout << "Zibai debug acl_submit_read_device_global_device_op is being called\n";
+    int result = 0;
+    acl_assert_locked();
+
+    // No user-level scheduling blocks this device global read
+    // So submit it to the device op queue.
+    // But only if it isn't already enqueued there.
+    if (!acl_event_is_valid(event)) {
+      return result;
+    }
+    // Already enqueued.
+    if (event->last_device_op) {
+      return result;
+    }
+
+    acl_device_op_queue_t *doq = &(acl_platform.device_op_queue);
+    acl_device_op_t *last_op = 0;
+
+    // Precautionary, but it also nudges the device scheduler to try
+    // to free up old operation slots.
+    acl_forget_proposed_device_ops(doq);
+
+    last_op = acl_propose_device_op(doq, ACL_DEVICE_OP_DEVICE_GLOBAL_READ,
+                                    event); // TODO Change this to the Device global READ op
+
+    if (last_op) {
+      // We managed to enqueue everything.
+      event->last_device_op = last_op;
+      acl_commit_proposed_device_ops(doq);
+      result = 1;
+    } else {
+      // Back off, and wait until later when we have more space in the
+      // device op queue.
+      acl_forget_proposed_device_ops(doq);
+    }
+    return result;
+}
+
+// Submit a device global write device operation to the device op queue
+cl_int acl_submit_write_device_global_device_op(cl_event event){
+    std::cout << "Zibai debug acl_submit_write_device_global_device_op is being called\n";
+    int result = 0;
+    acl_assert_locked();
+
+    // No user-level scheduling blocks this device global write
+    // So submit it to the device op queue.
+    // But only if it isn't already enqueued there.
+    if (!acl_event_is_valid(event)) {
+      return result;
+    }
+    // Already enqueued.
+    if (event->last_device_op) {
+      return result;
+    }
+
+    acl_device_op_queue_t *doq = &(acl_platform.device_op_queue);
+    acl_device_op_t *last_op = 0;
+
+    // Precautionary, but it also nudges the device scheduler to try
+    // to free up old operation slots.
+    acl_forget_proposed_device_ops(doq);
+
+    last_op = acl_propose_device_op(doq, ACL_DEVICE_OP_DEVICE_GLOBAL_WRITE,
+                                    event); // TODO Change this to the Device global WRITE op
+
+    if (last_op) {
+      // We managed to enqueue everything.
+      event->last_device_op = last_op;
+      acl_commit_proposed_device_ops(doq);
+      result = 1;
+    } else {
+      // Back off, and wait until later when we have more space in the
+      // device op queue.
+      acl_forget_proposed_device_ops(doq);
+    }
+    return result;
+}
+
+// Read from a device global zibai
+void acl_read_device_global(void *user_data, acl_device_op_t *op){
+  std::cout << "Zibai debug acl_read_device_global is being called\n";
+  cl_event event = op->info.event;
+  cl_int status = 0;
+  size_t pulled_data = 0;
+
+  // ZIBAI TODO LOCKING ON DEVICE GLOBAL?
+  acl_assert_locked();
+
+  if (!acl_event_is_valid(event) ||
+      !acl_command_queue_is_valid(event->command_queue)) {
+    acl_set_device_op_execution_status(op, -1);
+    return;
+  }
+
+  acl_set_device_op_execution_status(op, CL_SUBMITTED);
+  acl_set_device_op_execution_status(op, CL_RUNNING);
+   
+  status = acl_get_hal()->simulation_device_global_interface_read( event->cmd.info.device_global_info.physical_device_id, event->cmd.info.device_global_info.name, event->cmd.info.device_global_info.read_ptr, (size_t) event->cmd.info.device_global_info.device_global_addr, event->cmd.info.device_global_info.size);
+  if (status==0){
+     acl_set_device_op_execution_status(op, CL_COMPLETE);
+  }else{
+     acl_set_device_op_execution_status(op, -1);
+  }
+}
+
+// Write into a device global
+void acl_write_device_global(void *user_data, acl_device_op_t *op){
+
+  std::cout << "Zibai debug acl_write_device_global is being called\n";
+  cl_event event = op->info.event;
+  cl_int status = 0;
+  size_t pulled_data = 0;
+
+  // ZIBAI TODO LOCKING ON DEVICE GLOBAL?
+  acl_assert_locked();
+
+  if (!acl_event_is_valid(event) ||
+      !acl_command_queue_is_valid(event->command_queue)) {
+    acl_set_device_op_execution_status(op, -1);
+    return;
+  }
+
+  acl_set_device_op_execution_status(op, CL_SUBMITTED);
+  acl_set_device_op_execution_status(op, CL_RUNNING);
+   
+  status = acl_get_hal()->simulation_device_global_interface_write( event->cmd.info.device_global_info.physical_device_id, event->cmd.info.device_global_info.name, event->cmd.info.device_global_info.write_ptr, (size_t) event->cmd.info.device_global_info.device_global_addr, event->cmd.info.device_global_info.size);
+
+  // TODO Check return value
+
+    if (status==0){
+     acl_set_device_op_execution_status(op, CL_COMPLETE);
+  }else{
+     acl_set_device_op_execution_status(op, -1);
+  }
 }
 
 #ifdef __GNUC__

@@ -155,6 +155,10 @@ typedef struct {
   // has been written by the runtime.
   void (*aocl_mmd_simulation_set_kernel_cra_address_map)(
       int handle, const std::vector<uintptr_t> &kernel_csr_address_map);
+
+  // TODO ZIBAI ADD COMMENT
+  int (*aocl_mmd_simulation_device_global_interface_read)( int handle, const char* interface_name, void* host_addr, size_t dev_addr, size_t size);
+  int (*aocl_mmd_simulation_device_global_interface_write)( int handle, const char* interface_name, const void* host_addr, size_t dev_addr, size_t size);
 } acl_mmd_dispatch_t;
 
 typedef struct {
