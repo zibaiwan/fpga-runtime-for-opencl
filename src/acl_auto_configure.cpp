@@ -528,7 +528,6 @@ static bool read_device_global_mem_defs(
   device_global_mem_defs.clear();
 
   for (auto i = 0U; result && (i < num_device_global); i++) {
-    std::cout << "Zibai debug any device global here? \n";
     counters.emplace_back(total_fields_device_global);
 
     // read device global name

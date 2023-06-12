@@ -4212,7 +4212,6 @@ ACL_EXPORT CL_API_ENTRY cl_int CL_API_CALL clEnqueueMigrateMemObjects(
       num_events_in_wait_list, event_wait_list, event);
 }
 
-// Zibai start
 
 /**
  * Read <size> bytes of data from device global
@@ -4245,7 +4244,8 @@ CL_API_ENTRY cl_int clEnqueueReadGlobalVariableINTEL(
     cl_bool blocking_read, size_t size, size_t offset, void *ptr,
     cl_uint num_events_in_wait_list, const cl_event *event_wait_list,
     cl_event *event) {
-  std::cout << "Zibai debug clEnqueueReadGlobalVariableINTEL is being called\n";
+
+  acl_print_debug_msg("Entring clEnqueueReadGlobalVariableINTEL function.\n");
   cl_int status = 0;
 
   // Get context from program, command_queue and event
@@ -4260,41 +4260,32 @@ CL_API_ENTRY cl_int clEnqueueReadGlobalVariableINTEL(
             "Invalid pointer was provided to host data");
   }
 
-  std::cout << "Zibai debug device global name is " << std::string(name) << "\n";
-
   if (name == NULL) {
     ERR_RET(CL_INVALID_VALUE, context, "Invalid Device Global Name");
   }
 
   uint64_t device_global_addr;
 
-  std::cout << "Zibai debug clEnqueueReadGlobalVariableINTEL getting dev_global_map start \n";
   std::unordered_map<std::string, acl_device_global_mem_def_t> dev_global_map =
       command_queue->device->loaded_bin->get_devdef().autodiscovery_def.device_global_mem_defs;
-  std::cout << "Zibai debug clEnqueueReadGlobalVariableINTEL getting dev_global_map end \n";
 
   std::unordered_map<std::string, acl_device_global_mem_def_t>::const_iterator
       dev_global = dev_global_map.find(std::string(name));
-  std::cout << "Zibai debug clEnqueueReadGlobalVariableINTEL getting dev_global end \n";
-
 
   if (dev_global != dev_global_map.end()) {
-    std::cout << "Zibai debug clEnqueueReadGlobalVariableINTEL 0 \n";
     device_global_addr = dev_global->second.address;
-    std::cout << "Zibai debug clEnqueueReadGlobalVariableINTEL 1 \n";
   }else{
-    std::cout << "Zibai debug clEnqueueReadGlobalVariableINTEL Cannot find Device Global address from the name \n";
+    acl_print_debug_msg("clEnqueueReadGlobalVariableINTEL Cannot find Device Global address from the name %s\n", name);
     ERR_RET(CL_INVALID_VALUE, context, "Cannot find Device Global address from the name");
   }
-  std::cout << "Zibai debug clEnqueueReadGlobalVariableINTEL 2 \n";
   cl_event local_event = 0; // used for blocking
 
   // Create an event/command to actually move the data at the appropriate
   // time.
   status =
       acl_create_event(command_queue, num_events_in_wait_list, event_wait_list,
-                       CL_COMMAND_READ_GLOBAL_VARIABLE_INTEL, &local_event); // TODO Change to device global read command
-  std::cout << "Zibai debug clEnqueueReadGlobalVariableINTEL 3 \n";
+                       CL_COMMAND_READ_GLOBAL_VARIABLE_INTEL, &local_event);
+
   if (status != CL_SUCCESS)
     return status;
 
@@ -4305,24 +4296,18 @@ CL_API_ENTRY cl_int clEnqueueReadGlobalVariableINTEL(
   local_event->cmd.info.device_global_info.name = name;
   local_event->cmd.info.device_global_info.size = size;
   local_event->cmd.info.device_global_info.physical_device_id = physical_device_id;
-  std::cout << "Zibai debug clEnqueueReadGlobalVariableINTEL 4 \n";
-  std::cout << "Zibai debug clEnqueueReadGlobalVariableINTEL 4.01 \n";
   acl_idle_update(command_queue->context); // If nothing's blocking, then complete right away
-  std::cout << "Zibai debug clEnqueueReadGlobalVariableINTEL 4.1 \n";
   if (blocking_read) {
     status = clWaitForEvents(1, &local_event);
   }
-  std::cout << "Zibai debug clEnqueueReadGlobalVariableINTEL 4.2 \n";
   if (event) {
-    std::cout << "Zibai debug clEnqueueReadGlobalVariableINTEL 4.3 \n";
     *event = local_event;
   } else {
-     std::cout << "Zibai debug clEnqueueReadGlobalVariableINTEL 4.4 \n";
     // User didn't care, so forget about the event.
     clReleaseEvent(local_event);
     acl_idle_update(command_queue->context); // Clean up early
   }
-  std::cout << "Zibai debug clEnqueueReadGlobalVariableINTEL 5 \n";
+  acl_print_debug_msg("Exiting clEnqueueReadGlobalVariableINTEL function\n");
   return CL_SUCCESS;
 }
 
@@ -4355,7 +4340,9 @@ CL_API_ENTRY cl_int clEnqueueWriteGlobalVariableINTEL(
     cl_bool blocking_write, size_t size, size_t offset, const void *ptr,
     cl_uint num_events_in_wait_list, const cl_event *event_wait_list,
     cl_event *event) {
-  std::cout << "Zibai debug clEnqueueWriteGlobalVariableINTEL is being called\n";
+
+  acl_print_debug_msg("Entring clEnqueueWriteGlobalVariableINTEL function\n");
+
   cl_int status = 0;
   // Get context from program, command_queue and event
   cl_context context = program->context;
@@ -4384,6 +4371,7 @@ CL_API_ENTRY cl_int clEnqueueWriteGlobalVariableINTEL(
   if (dev_global != dev_global_map.end()) {
     device_global_addr = dev_global->second.address;
   }else{
+    acl_print_debug_msg("clEnqueueReadGlobalVariableINTEL Cannot find Device Global address from the name %s\n", name);
     ERR_RET(CL_INVALID_VALUE, context, "Cannot find Device Global address from the name");
   }
 
@@ -4421,11 +4409,9 @@ CL_API_ENTRY cl_int clEnqueueWriteGlobalVariableINTEL(
     clReleaseEvent(local_event);
     acl_idle_update(command_queue->context); // Clean up early
   }
-
+  acl_print_debug_msg("Exiting clEnqueueWriteGlobalVariableINTEL function\n");
   return CL_SUCCESS;
 }
-
-/// Zibai End
 
 //////////////////////////////
 // Internals
@@ -7745,7 +7731,7 @@ void *acl_get_physical_address(cl_mem mem, cl_device_id device) {
 // Submit an op to the device op queue to read device global.
 // Return 1 if we made forward progress, 0 otherwise.
 cl_int acl_submit_read_device_global_device_op(cl_event event){
-    std::cout << "Zibai debug acl_submit_read_device_global_device_op is being called\n";
+    acl_print_debug_msg("Entering acl_submit_read_device_global_device_op function\n");
     int result = 0;
     acl_assert_locked();
 
@@ -7780,12 +7766,13 @@ cl_int acl_submit_read_device_global_device_op(cl_event event){
       // device op queue.
       acl_forget_proposed_device_ops(doq);
     }
+    acl_print_debug_msg("Exiting acl_submit_read_device_global_device_op function\n");
     return result;
 }
 
 // Submit a device global write device operation to the device op queue
 cl_int acl_submit_write_device_global_device_op(cl_event event){
-    std::cout << "Zibai debug acl_submit_write_device_global_device_op is being called\n";
+    acl_print_debug_msg("Entering acl_submit_write_device_global_device_op function\n");
     int result = 0;
     acl_assert_locked();
 
@@ -7820,17 +7807,17 @@ cl_int acl_submit_write_device_global_device_op(cl_event event){
       // device op queue.
       acl_forget_proposed_device_ops(doq);
     }
+    acl_print_debug_msg("Exiting acl_submit_write_device_global_device_op function\n");
     return result;
 }
 
 // Read from a device global zibai
 void acl_read_device_global(void *user_data, acl_device_op_t *op){
-  std::cout << "Zibai debug acl_read_device_global is being called\n";
+  acl_print_debug_msg("Entering acl_read_device_global function\n");
   cl_event event = op->info.event;
   cl_int status = 0;
   size_t pulled_data = 0;
 
-  // ZIBAI TODO LOCKING ON DEVICE GLOBAL?
   acl_assert_locked();
 
   if (!acl_event_is_valid(event) ||
@@ -7848,17 +7835,17 @@ void acl_read_device_global(void *user_data, acl_device_op_t *op){
   }else{
      acl_set_device_op_execution_status(op, -1);
   }
+  acl_print_debug_msg("Exiting acl_read_device_global function\n");
 }
 
 // Write into a device global
 void acl_write_device_global(void *user_data, acl_device_op_t *op){
 
-  std::cout << "Zibai debug acl_write_device_global is being called\n";
+  acl_print_debug_msg("Entering acl_write_device_global function\n");
   cl_event event = op->info.event;
   cl_int status = 0;
   size_t pulled_data = 0;
 
-  // ZIBAI TODO LOCKING ON DEVICE GLOBAL?
   acl_assert_locked();
 
   if (!acl_event_is_valid(event) ||
@@ -7879,6 +7866,7 @@ void acl_write_device_global(void *user_data, acl_device_op_t *op){
   }else{
      acl_set_device_op_execution_status(op, -1);
   }
+   acl_print_debug_msg("Existing acl_write_device_global function\n");
 }
 
 #ifdef __GNUC__

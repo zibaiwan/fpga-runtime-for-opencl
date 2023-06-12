@@ -2501,7 +2501,7 @@ clEnqueueWriteGlobalVariableINTEL_fn)(
     void* ptr,
     cl_uint num_events_in_wait_list,
     const cl_event* event_wait_list,
-    cl_event* event) CL_API_SUFFIX__VERSION_1_0; //ZIBAI TODO: Double check whether this is 1.0 or 3.0 as SPEC, maybe SPEC wrong?
+    cl_event* event) CL_API_SUFFIX__VERSION_1_0;
 
 /******************************************
 * cl_intel_mem_channel_property extension *

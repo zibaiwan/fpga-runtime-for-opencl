@@ -94,7 +94,6 @@ void CL_CALLBACK acl_free_allocation_after_event_completion(
     cl_event event, cl_int event_command_exec_status, void *callback_data);
 
 // Submit a device global read operation to the device op queue
-// acl_submit_read_program_hostpipe_device_op will be invoked when the read op is RUNNING
 cl_int acl_submit_read_device_global_device_op(cl_event event);
 // Submit a device global write device operation to the device op queue
 cl_int acl_submit_write_device_global_device_op(cl_event event);
