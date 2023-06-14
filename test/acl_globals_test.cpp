@@ -580,7 +580,15 @@ static acl_system_def_t acltest_complex_system = {
                /* num_global_bank */ 2,
                /* burst_interleaved */ 1,
            },
-       }}},
+       },
+       {}, //hostpipe info
+       {
+              // device_global_mem_defs map
+              {"dev_global_name",
+               {0x1024, 2048, ACL_DEVICE_GLOBAL_HOST_ACCESS_TYPE_COUNT,
+                0, 0, 0}},
+        },
+      }},
      {nullptr,
       1,
       1,
@@ -605,7 +613,15 @@ static acl_system_def_t acltest_complex_system = {
                /* num_global_bank */ 2,
                /* burst_interleaved */ 1,
            },
-       }}},
+       },
+       {}, //hostpipe info
+       {
+              // device_global_mem_defs map
+              {"dev_global_name",
+               {0x1024, 2048, ACL_DEVICE_GLOBAL_HOST_ACCESS_TYPE_COUNT,
+                0, 0, 0}},
+        },
+      }},
      {nullptr,
       2,
       1,

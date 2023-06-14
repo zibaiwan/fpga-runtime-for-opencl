@@ -656,7 +656,7 @@ static void l_release_command_resources(acl_command_info_t &cmd) {
     break;
   case CL_COMMAND_READ_GLOBAL_VARIABLE_INTEL:
   case CL_COMMAND_WRITE_GLOBAL_VARIABLE_INTEL:
-    // Zibai Todo Determine what's need to cleanup
+    // Cleanup is handled by the host free.
     break;
   default:
     break;
