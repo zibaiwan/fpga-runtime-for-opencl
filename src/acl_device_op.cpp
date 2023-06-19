@@ -109,7 +109,7 @@ static unsigned char conflict_matrix_half_duplex
     [ACL_NUM_CONFLICT_TYPES][ACL_NUM_CONFLICT_TYPES] = {
 
         //                      NONE, MEM_READ, MEM_WRITE, MEM_RW, KERNEL,
-        //                      PROGRAM, HOSTPIPE_READ, HOSTPIPE_WRITE, 
+        //                      PROGRAM, HOSTPIPE_READ, HOSTPIPE_WRITE,
         //                      DEVICE_GLOBAL_READ, DEVICE_GLOBAL_WRITE
         // NONE vs.
         {0, 0, 0, 0, 0, 1, 0, 0, 0, 0}
@@ -1022,7 +1022,7 @@ unsigned l_update_device_op_queue_once(acl_device_op_queue_t *doq) {
                       op->info.type == ACL_DEVICE_OP_HOSTPIPE_READ ||
                       op->info.type == ACL_DEVICE_OP_HOSTPIPE_WRITE ||
                       op->info.type == ACL_DEVICE_OP_DEVICE_GLOBAL_READ ||
-                      op->info.type == ACL_DEVICE_OP_DEVICE_GLOBAL_WRITE )) {
+                      op->info.type == ACL_DEVICE_OP_DEVICE_GLOBAL_WRITE)) {
             if (!acl_mem_op_requires_transfer(op->info.event->cmd)) {
               is_conflicting = 0;
             }

@@ -171,8 +171,12 @@ size_t acl_hal_mmd_read_csr(unsigned int physical_device_id, uintptr_t offset,
 size_t acl_hal_mmd_write_csr(unsigned int physical_device_id, uintptr_t offset,
                              const void *ptr, size_t size);
 
-int acl_hal_mmd_simulation_device_global_interface_read(unsigned int physical_device_id, const char* interface_name, void* host_addr, size_t dev_addr, size_t size);
-int acl_hal_mmd_simulation_device_global_interface_write(unsigned int physical_device_id, const char* interface_name, const void* host_addr, size_t dev_addr, size_t size);
+int acl_hal_mmd_simulation_device_global_interface_read(
+    unsigned int physical_device_id, const char *interface_name,
+    void *host_addr, size_t dev_addr, size_t size);
+int acl_hal_mmd_simulation_device_global_interface_write(
+    unsigned int physical_device_id, const char *interface_name,
+    const void *host_addr, size_t dev_addr, size_t size);
 
 static size_t acl_kernel_if_read(acl_bsp_io *io, dev_addr_t src, char *dest,
                                  size_t size);
@@ -370,8 +374,8 @@ static acl_hal_t acl_hal_mmd = {
     acl_hal_mmd_simulation_set_kernel_cra_address_map, // simulation_set_kernel_cra_address_map
     acl_hal_mmd_read_csr,                              // read_csr
     acl_hal_mmd_write_csr,                             // write_csr
-    acl_hal_mmd_simulation_device_global_interface_read, //simulation_device_global_interface_read
-    acl_hal_mmd_simulation_device_global_interface_write, //simulation_device_global_interface_write
+    acl_hal_mmd_simulation_device_global_interface_read, // simulation_device_global_interface_read
+    acl_hal_mmd_simulation_device_global_interface_write, // simulation_device_global_interface_write
 };
 
 // This will contain the device physical id to tell us which device across all
@@ -2897,14 +2901,20 @@ size_t acl_hal_mmd_write_csr(unsigned int physical_device_id, uintptr_t offset,
       kernel_interface, (size_t)offset);
 }
 
-int acl_hal_mmd_simulation_device_global_interface_read(unsigned int physical_device_id, const char* interface_name, void* host_addr, size_t dev_addr, size_t size){
+int acl_hal_mmd_simulation_device_global_interface_read(
+    unsigned int physical_device_id, const char *interface_name,
+    void *host_addr, size_t dev_addr, size_t size) {
   return device_info[physical_device_id]
       .mmd_dispatch->aocl_mmd_simulation_device_global_interface_read(
-          device_info[physical_device_id].handle, interface_name, host_addr, dev_addr, size);
+          device_info[physical_device_id].handle, interface_name, host_addr,
+          dev_addr, size);
 }
 
-int acl_hal_mmd_simulation_device_global_interface_write(unsigned int physical_device_id, const char* interface_name, const void* host_addr, size_t dev_addr, size_t size){
+int acl_hal_mmd_simulation_device_global_interface_write(
+    unsigned int physical_device_id, const char *interface_name,
+    const void *host_addr, size_t dev_addr, size_t size) {
   return device_info[physical_device_id]
       .mmd_dispatch->aocl_mmd_simulation_device_global_interface_write(
-          device_info[physical_device_id].handle, interface_name, host_addr, dev_addr, size);
+          device_info[physical_device_id].handle, interface_name, host_addr,
+          dev_addr, size);
 }

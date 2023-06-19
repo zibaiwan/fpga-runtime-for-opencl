@@ -1262,7 +1262,6 @@ MT_TEST(acl_usm, read_device_global) {
 
   syncThreads();
 
-
   // Read from device global
   status = clEnqueueReadGlobalVariableINTEL(m_cq, m_program, "dev_global_name",
                                             CL_FALSE, strsize, 0, src_ptr, 0,
@@ -1270,9 +1269,9 @@ MT_TEST(acl_usm, read_device_global) {
   CHECK_EQUAL(CL_SUCCESS, status);
 
   // Read from device global failed
-  status = clEnqueueReadGlobalVariableINTEL(m_cq, m_program, "dev_global_name_not_exist",
-                                            CL_FALSE, strsize, 0, src_ptr, 0,
-                                            NULL, &read_event);
+  status = clEnqueueReadGlobalVariableINTEL(
+      m_cq, m_program, "dev_global_name_not_exist", CL_FALSE, strsize, 0,
+      src_ptr, 0, NULL, &read_event);
   CHECK_EQUAL(CL_INVALID_ARG_VALUE, status);
 
   // Block on all event completion
@@ -1300,7 +1299,6 @@ MT_TEST(acl_usm, write_device_global) {
 
   syncThreads();
 
-
   // Write device global
   status = clEnqueueReadGlobalVariableINTEL(m_cq, m_program, "dev_global_name",
                                             CL_FALSE, strsize, 0, src_ptr, 0,
@@ -1308,9 +1306,9 @@ MT_TEST(acl_usm, write_device_global) {
   CHECK_EQUAL(CL_SUCCESS, status);
 
   // Write device global failed
-  status = clEnqueueReadGlobalVariableINTEL(m_cq, m_program, "dev_global_name_not_exist",
-                                            CL_FALSE, strsize, 0, src_ptr, 0,
-                                            NULL, &write_event);
+  status = clEnqueueReadGlobalVariableINTEL(
+      m_cq, m_program, "dev_global_name_not_exist", CL_FALSE, strsize, 0,
+      src_ptr, 0, NULL, &write_event);
   CHECK_EQUAL(CL_INVALID_ARG_VALUE, status);
 
   // Block on all event completion

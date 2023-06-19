@@ -620,7 +620,7 @@ typedef struct {
       const void *write_ptr;
       bool blocking;
       uint64_t device_global_addr;
-      const char* name;
+      const char *name;
       size_t size;
       unsigned int physical_device_id;
     } device_global_info;
@@ -1375,7 +1375,7 @@ typedef enum {
   ACL_CONFLICT_HOSTPIPE_WRITE // Acts like a hostpipe write from the host
                               // channel
   ,
-  ACL_CONFLICT_DEVICE_GLOBAL_READ, // Acts like a Device Global Read
+  ACL_CONFLICT_DEVICE_GLOBAL_READ,  // Acts like a Device Global Read
   ACL_CONFLICT_DEVICE_GLOBAL_WRITE, // Acts likes a Device Global Write
 
   ACL_NUM_CONFLICT_TYPES

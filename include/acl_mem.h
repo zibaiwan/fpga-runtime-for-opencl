@@ -104,7 +104,6 @@ void acl_read_device_global(void *user_data, acl_device_op_t *op);
 // Write into a device global
 void acl_write_device_global(void *user_data, acl_device_op_t *op);
 
-
 #ifdef __GNUC__
 #pragma GCC visibility pop
 #endif
