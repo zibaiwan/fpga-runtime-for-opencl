@@ -4215,8 +4215,8 @@ ACL_EXPORT CL_API_ENTRY cl_int CL_API_CALL clEnqueueMigrateMemObjects(
 /**
  * Read <size> bytes of data from device global
  *
- * @param command_queue the queue system this copy kernel will belong
- * @param program contains copy kernel
+ * @param command_queue the queue system this command will belong
+ * @param program contains the device global
  * @param name name of device global, used to look up for device global address
  * in autodiscovery string
  * @param blocking_read whether the operation is blocking or not
@@ -4346,7 +4346,7 @@ CL_API_ENTRY cl_int clEnqueueReadGlobalVariableINTEL(
 /**
  * Write <size> bytes of data from user provided host pointer into device global
  *
- * @param command_queue the queue system this device global write will belong
+ * @param command_queue the queue system this command belongs
  * @param program contains device global write
  * @param name name of device global, used to look up for device global address
  * in autodiscovery string
