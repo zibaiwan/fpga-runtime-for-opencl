@@ -618,7 +618,6 @@ typedef struct {
       size_t offset;
       void *read_ptr;
       const void *write_ptr;
-      bool blocking;
       uint64_t device_global_addr;
       const char *name;
       size_t size;

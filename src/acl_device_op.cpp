@@ -131,7 +131,11 @@ static unsigned char conflict_matrix_half_duplex
         // HOSTPIPE_READ vs.
         {0, 1, 1, 1, 0, 1, 0, 0, 1, 1},
         // HOSTPIPE_WRITE vs.
-        {0, 1, 1, 1, 0, 1, 0, 0, 1, 1}};
+        {0, 1, 1, 1, 0, 1, 0, 0, 1, 1},
+        // DEVICE_GLOBAL_READ vs.
+        {0, 1, 1, 1, 0, 1, 1, 1, 1, 1},
+        // DEVICE_GLOBAL_WRITE vs.
+        {0, 1, 1, 1, 0, 1, 1, 1, 1, 1}};
 
 static unsigned char conflict_matrix_full_duplex
     [ACL_NUM_CONFLICT_TYPES][ACL_NUM_CONFLICT_TYPES] = {
@@ -159,7 +163,11 @@ static unsigned char conflict_matrix_full_duplex
         // HOSTPIPE_READ vs.
         {0, 1, 1, 1, 0, 1, 0, 0, 0, 0},
         // HOSTPIPE_WRITE vs.
-        {0, 1, 1, 1, 0, 1, 0, 0, 0, 0}};
+        {0, 1, 1, 1, 0, 1, 0, 0, 0, 0},
+        // DEVICE_GLOBAL_READ vs.
+        {0, 1, 0, 1, 0, 1, 1, 1, 1, 0},
+        // DEVICE_GLOBAL_WRITE vs.
+        {0, 0, 1, 1, 0, 1, 1, 1, 0, 1}};
 
 static const char *l_type_name(int op_type) {
   switch (op_type) {

@@ -4321,7 +4321,6 @@ CL_API_ENTRY cl_int clEnqueueReadGlobalVariableINTEL(
   local_event->cmd.info.device_global_info.read_ptr = ptr;
   local_event->cmd.info.device_global_info.device_global_addr =
       device_global_addr;
-  local_event->cmd.info.device_global_info.blocking = blocking_read;
   local_event->cmd.info.device_global_info.name = name;
   local_event->cmd.info.device_global_info.size = size;
   local_event->cmd.info.device_global_info.physical_device_id =
@@ -4452,7 +4451,6 @@ CL_API_ENTRY cl_int clEnqueueWriteGlobalVariableINTEL(
   local_event->cmd.info.device_global_info.write_ptr = ptr;
   local_event->cmd.info.device_global_info.device_global_addr =
       device_global_addr;
-  local_event->cmd.info.device_global_info.blocking = blocking_write;
   local_event->cmd.info.device_global_info.name = name;
   local_event->cmd.info.device_global_info.size = size;
   local_event->cmd.info.device_global_info.physical_device_id =
@@ -7818,9 +7816,7 @@ cl_int acl_submit_read_device_global_device_op(cl_event event) {
   // to free up old operation slots.
   acl_forget_proposed_device_ops(doq);
 
-  last_op = acl_propose_device_op(
-      doq, ACL_DEVICE_OP_DEVICE_GLOBAL_READ,
-      event); // TODO Change this to the Device global READ op
+  last_op = acl_propose_device_op(doq, ACL_DEVICE_OP_DEVICE_GLOBAL_READ, event);
 
   if (last_op) {
     // We managed to enqueue everything.
@@ -7862,9 +7858,8 @@ cl_int acl_submit_write_device_global_device_op(cl_event event) {
   // to free up old operation slots.
   acl_forget_proposed_device_ops(doq);
 
-  last_op = acl_propose_device_op(
-      doq, ACL_DEVICE_OP_DEVICE_GLOBAL_WRITE,
-      event); // TODO Change this to the Device global WRITE op
+  last_op =
+      acl_propose_device_op(doq, ACL_DEVICE_OP_DEVICE_GLOBAL_WRITE, event);
 
   if (last_op) {
     // We managed to enqueue everything.
