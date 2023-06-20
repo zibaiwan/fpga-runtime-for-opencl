@@ -7939,7 +7939,7 @@ void acl_write_device_global(void *user_data, acl_device_op_t *op) {
   } else {
     acl_set_device_op_execution_status(op, -1);
   }
-  acl_print_debug_msg("Existing acl_write_device_global function\n");
+  acl_print_debug_msg("Exiting acl_write_device_global function\n");
 }
 
 #ifdef __GNUC__
