@@ -7898,7 +7898,7 @@ void acl_read_device_global(void *user_data, acl_device_op_t *op) {
       event->cmd.info.device_global_info.physical_device_id,
       event->cmd.info.device_global_info.name,
       event->cmd.info.device_global_info.read_ptr,
-      (size_t)event->cmd.info.device_global_info.device_global_addr,
+      (size_t)event->cmd.info.device_global_info.device_global_addr + event->cmd.info.device_global_info.offset,
       event->cmd.info.device_global_info.size);
   if (status == 0) {
     acl_set_device_op_execution_status(op, CL_COMPLETE);
@@ -7931,7 +7931,7 @@ void acl_write_device_global(void *user_data, acl_device_op_t *op) {
       event->cmd.info.device_global_info.physical_device_id,
       event->cmd.info.device_global_info.name,
       event->cmd.info.device_global_info.write_ptr,
-      (size_t)event->cmd.info.device_global_info.device_global_addr,
+      (size_t)event->cmd.info.device_global_info.device_global_addr + event->cmd.info.device_global_info.offset,
       event->cmd.info.device_global_info.size);
 
   if (status == 0) {
