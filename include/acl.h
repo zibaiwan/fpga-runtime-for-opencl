@@ -376,8 +376,9 @@ typedef struct {
     if (truncate_range) {
       result.begin = (void *)ACL_MEM_ALIGN;
     }
+
     assert(result.begin < result.next &&
-           "device private global memory is too small");
+          "device private global memory is too small");
 
     return result;
   }

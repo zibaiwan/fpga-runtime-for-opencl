@@ -275,7 +275,7 @@ read_global_mem_defs(const std::string &config_str,
                      std::vector<int> &counters) noexcept {
   bool result = read_uint_counters(config_str, curr_pos, num_global_mem_systems,
                                    counters);
-
+                                   
   for (auto i = 0U; result && (i < num_global_mem_systems); i++) {
     std::string gmem_name;
     // read total number of fields in global_memories

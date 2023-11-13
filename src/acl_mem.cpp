@@ -267,18 +267,22 @@ static int acl_do_physical_buffer_allocation(unsigned physical_device_id,
   // When mem_id == 0 it indicates the mem_id is not finalized yet so need to
   // set it to a real value here.
   bool glob_mem = mem->block_allocation->region == &(acl_platform.global_mem);
+  std::cout << "zibai acl_do_physical_buffer_allocation debug mem->mem_id is " << mem->mem_id << "\n";
   if (glob_mem && mem->mem_id == 0) {
     // Memory migration between SVM and device global memory is not supported.
     // If device supports both, do physical buffer allocation on device global
     // memory only.
+    std::cout << "zibai acl_do_physical_buffer_allocation debug inside if statement mem->mem_id is " << mem->mem_id << "\n";
     if (acl_svm_device_supports_physical_memory(physical_device_id) &&
         acl_svm_device_supports_any_svm(physical_device_id)) {
+      // Not even going inside here. zibai debug
       assert(
           acl_platform.device[physical_device_id]
                   .def.autodiscovery_def.num_global_mem_systems > 0 &&
           "Device is not configured to support SVM and device global memory.");
       int tmp_mem_id = acl_get_default_device_global_memory(
           acl_platform.device[physical_device_id].def);
+      std::cout << "zibai acl_do_physical_buffer_allocation debug inside if statement tmp_mem_id is " << tmp_mem_id << "\n";
       assert(tmp_mem_id >= 0 &&
              "Device does not have any device global memory.");
       mem->mem_id = (unsigned int)tmp_mem_id;
@@ -437,6 +441,16 @@ CL_API_ENTRY cl_mem clCreateBufferWithPropertiesINTEL(
     } break;
     case CL_MEM_ALLOC_BUFFER_LOCATION_INTEL: {
       tmp_mem_id = (cl_uint) * (properties + 1);
+      std::cout << "zibai clCreateBufferWithPropertiesINTEL debug before tmp_mem_id is " << tmp_mem_id << "\n";
+      std::cout << "zibai clCreateBufferWithPropertiesINTEL hard coding hack start \n";
+      if (tmp_mem_id == 1){
+        tmp_mem_id = 0;
+      }else if (tmp_mem_id == 3){
+        tmp_mem_id = 1;
+      }else if (tmp_mem_id == 5){
+        tmp_mem_id = 2;
+      }
+      std::cout << "zibai clCreateBufferWithPropertiesINTEL debug tmp_mem_id is " << tmp_mem_id << "\n";
     } break;
     default: {
       BAIL_INFO(CL_INVALID_DEVICE, context, "Invalid properties");
@@ -4488,7 +4502,7 @@ static void l_get_working_range(const acl_block_allocation_t *block_allocation,
   if (block_allocation->region == &(acl_platform.global_mem)) {
     const auto *global_mem_defs = &(acl_platform.device[physical_device_id]
                                         .def.autodiscovery_def.global_mem_defs);
-
+    std::cout << "zibai debug l_get_working_range target_mem_id is " << target_mem_id << "\n";
     assert(target_mem_id < acl_platform.device[physical_device_id]
                                .def.autodiscovery_def.num_global_mem_systems);
     const auto &global_mem_def = (*global_mem_defs)[target_mem_id];
