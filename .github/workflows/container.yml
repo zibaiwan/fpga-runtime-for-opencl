@@ -117,7 +117,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: push image to registry
-        if: github.event_name == 'push'
+        # if: github.event_name == 'push'
         run: docker image push "$image:$tag"
         env:
           tag: ${{ steps.tag.outputs.tag }}
