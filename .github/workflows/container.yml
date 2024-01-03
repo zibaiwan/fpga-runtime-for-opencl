@@ -30,8 +30,8 @@ permissions:
 
 on:
   push:
-    branches:
-      - main
+    # branches:
+    #   - main
     paths:
       - '.github/workflows/container.yml'
       - 'container/rockylinux-8-dev/**'
