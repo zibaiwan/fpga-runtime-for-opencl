@@ -52,7 +52,7 @@ jobs:
     runs-on: ubuntu-20.04
 
     container:
-      image: ghcr.io/intel/fpga-runtime-for-opencl/${{ matrix.image }}:main
+      image: ghcr.io/zibaiwan/fpga-runtime-for-opencl/${{ matrix.image }}:main
 
     strategy:
       matrix:
