@@ -443,6 +443,7 @@ CL_API_ENTRY cl_mem clCreateBufferWithPropertiesINTEL(
       tmp_mem_id = (cl_uint) * (properties + 1);
       std::cout << "zibai clCreateBufferWithPropertiesINTEL debug before tmp_mem_id is " << tmp_mem_id << "\n";
       std::cout << "zibai clCreateBufferWithPropertiesINTEL hard coding hack start \n";
+      // Zibai comment: in HLS flow this tmp_mem_id is the name of the global memory it needs to find in the global memory map
       if (tmp_mem_id == 1){
         tmp_mem_id = 0;
       }else if (tmp_mem_id == 3){
